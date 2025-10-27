@@ -1,19 +1,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
-#![allow(rustdoc::missing_crate_level_docs)] // it's an example
-
-use std::{
-    sync::Arc,
-    thread::JoinHandle,
-    time::{Duration, Instant},
-};
-
-use benchmarks::BenchmarkProgressTracker;
-use eframe::egui::{self, Atom, Atoms};
+use benchmarks::{BenchmarkProgressSnapshop, impls::memory::PAGE_SIZE, impls::*};
+use eframe::egui;
+use sizef::IntoSize;
+use std::time::Duration;
 
 fn main() -> eframe::Result {
     // env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 240.0]),
+        viewport: egui::ViewportBuilder::default(),
         ..Default::default()
     };
     eframe::run_native(
@@ -29,50 +23,183 @@ fn main() -> eframe::Result {
 }
 
 struct MyApp {
-    progress: Arc<BenchmarkProgressTracker>,
-    working_thread: Option<JoinHandle<()>>,
+    benchmark_config: memory::Config,
+    running_benchmark: Option<memory::MemoryThroughputBench>,
+    last_progress: Option<BenchmarkProgressSnapshop<memory::State>>,
+    total_result: memory::TestResult,
+    avg_per_thread_result: memory::TestResult,
 }
 
 impl MyApp {
     fn new() -> Self {
         Self {
-            progress: Arc::new(BenchmarkProgressTracker::new(1024, 1)),
-            working_thread: None,
+            benchmark_config: memory::Config {
+                passes: 2,
+                threads: 1,
+                operation: memory::MemoryOperation::Read,
+                init_type: memory::MemoryInitializationType::Zeros,
+                size_per_thread: *PAGE_SIZE * 1024 * 10,
+            },
+            running_benchmark: None,
+            last_progress: None,
+            total_result: memory::TestResult::default(),
+            avg_per_thread_result: memory::TestResult::default(),
         }
     }
 }
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            if self.progress.all_threads_done()
-                && let Some(thread) = self.working_thread.take() {
-                    _ = thread.join();
-                }
-            let start_benchmark = ui.add_enabled(
-                self.working_thread.is_none(),
-                egui::Button::new("Start benchmark."),
-            );
-            if start_benchmark.clicked() {
-                let work_units = 1024;
-                self.progress.reset(work_units, 1);
-                let thread_progress = Arc::clone(&self.progress);
-                self.working_thread = Some(std::thread::spawn(move || {
-                    for _ in 0..work_units {
-                        thread_progress.add(1);
-                        std::thread::sleep(Duration::from_millis(10));
-                    }
-                    thread_progress.flag_thread_done();
-                }));
-            }
-            if self.working_thread.is_some() {
-                ctx.request_repaint_after(Duration::from_millis(10));
-            }
-            ui.add(egui::ProgressBar::new(self.progress.load().as_f32()));
+        egui::TopBottomPanel::bottom("Render stats").show(ctx, |ui| {
             ui.label(format!(
                 "Render time: {:.2}ms",
                 frame.info().cpu_usage.unwrap_or_default() * 1000.0
             ));
+        });
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.heading("Memory Throughput");
+            egui::Grid::new("memory_benchmark_options").show(ui, |ui| {
+                let height = ui.text_style_height(&egui::TextStyle::Body);
+                let value_size = [height * 4.0, height];
+                ui.label("Thread(s)");
+                ui.add_sized(
+                    value_size,
+                    egui::DragValue::new(&mut self.benchmark_config.threads)
+                        .speed(1)
+                        .range(1..=1024),
+                );
+                ui.end_row();
+                ui.label("Passes");
+                ui.add_sized(
+                    value_size,
+                    egui::DragValue::new(&mut self.benchmark_config.passes)
+                        .speed(1)
+                        .range(1..=1024),
+                );
+                ui.end_row();
+                ui.label("Memory per thread");
+                ui.add_sized(
+                    value_size,
+                    egui::DragValue::new(&mut self.benchmark_config.size_per_thread)
+                        .speed((*PAGE_SIZE * 16) as f64)
+                        .range(*PAGE_SIZE..=*PAGE_SIZE * 1024 * 1024 * 32)
+                        .custom_formatter(|val, _| val.into_decimalsize().to_string())
+                        .custom_parser(|input| {
+                            let input = input.trim();
+                            let digits = input
+                                .bytes()
+                                .take_while(|b| matches!(b, b'0'..=b'9' | b'.'))
+                                .count();
+                            let (number, suffix) = input.split_at(digits);
+                            let multiplier = match suffix.trim_start() {
+                                "" | "b" | "B" | "byte" => 1.0,
+                                "k" | "K" | "kb" | "KB" | "kib" | "KiB" => 1024.0,
+                                "m" | "M" | "mb" | "MB" | "mib" | "MiB" => 1024.0 * 1024.0,
+                                "g" | "G" | "gb" | "GB" | "gib" | "GiB" => 1024.0 * 1024.0 * 1024.0,
+                                _ => return None,
+                            };
+                            Some(number.parse::<f64>().ok()? * multiplier)
+                        }),
+                );
+                ui.end_row();
+                ui.label("Operation");
+                egui::ComboBox::from_id_salt("memory_benchmark_option_operation")
+                    .selected_text(format!("{:?}", self.benchmark_config.operation))
+                    .width(value_size[0])
+                    .show_ui(ui, |ui| {
+                        use memory::MemoryOperation::*;
+                        let op = &mut self.benchmark_config.operation;
+                        ui.selectable_value(op, Read, "Read");
+                        ui.selectable_value(op, Write, "Write");
+                        ui.selectable_value(op, Copy, "Copy");
+                    });
+                ui.end_row();
+                ui.label("Fill with");
+                egui::ComboBox::from_id_salt("memory_benchmark_option_init_type")
+                    .selected_text(format!("{:?}", self.benchmark_config.init_type))
+                    .width(value_size[0])
+                    .show_ui(ui, |ui| {
+                        use memory::MemoryInitializationType::*;
+                        let init = &mut self.benchmark_config.init_type;
+                        ui.selectable_value(init, Zeros, "Zeros");
+                        ui.selectable_value(init, Ones, "Ones");
+                        ui.selectable_value(init, Random, "Random");
+                    });
+            });
+            ui.horizontal(|ui| {
+                let start_benchmark = ui.add_enabled(
+                    self.running_benchmark.is_none(),
+                    egui::Button::new("Start benchmark."),
+                );
+                let cancel_benchmark = ui.add_enabled(
+                    self.running_benchmark.is_some(),
+                    egui::Button::new("Cancel"),
+                );
+                if start_benchmark.clicked() {
+                    self.running_benchmark = Some(self.benchmark_config.clone().start())
+                }
+                if cancel_benchmark.clicked() {
+                    self.running_benchmark
+                        .as_ref()
+                        .unwrap()
+                        .progress()
+                        .request_stop();
+                }
+            });
+            if let Some(running) = self.running_benchmark.take() {
+                let progress = running.progress();
+                if running.is_done() {
+                    let results = running.wait_for_results();
+                    let mut total_result = memory::TestResult::default();
+                    for result in results.iter() {
+                        total_result.memory_processed += result.memory_processed;
+                        total_result.runtime += result.runtime;
+                    }
+                    total_result.runtime /= results.len().max(1) as u32;
+                    let avg_per_thread_result = memory::TestResult {
+                        runtime: total_result.runtime,
+                        memory_processed: total_result.memory_processed / results.len().max(1),
+                    };
+                    self.total_result = total_result;
+                    self.avg_per_thread_result = avg_per_thread_result;
+                } else {
+                    self.running_benchmark = Some(running);
+                    ctx.request_repaint_after(Duration::from_millis(10));
+                }
+                self.last_progress = Some(progress.load());
+            }
+            let (progress, stage) = if let Some(progress) = &self.last_progress {
+                (
+                    progress.as_f32(),
+                    if progress.was_cancelled() {
+                        "Cancelled".to_string()
+                    } else {
+                        format!("{}", progress.current_state())
+                    },
+                )
+            } else {
+                (0.0, "Not running".to_string())
+            };
+            ui.horizontal(|ui| {
+                ui.add_enabled(
+                    self.running_benchmark.is_some(),
+                    egui::ProgressBar::new(progress).text(stage),
+                );
+            });
+            ui.heading("Results(per thread)");
+            ui.add_enabled_ui(!self.total_result.runtime.is_zero(), |ui| {
+                ui.label("Throughput");
+                ui.indent("throughput", |ui| {
+                    ui.label(format!(
+                        "Total: {}/s",
+                        self.total_result.throughput().into_decimalsize()
+                    ));
+                    ui.label(format!(
+                        "Average per thread: {}/s",
+                        self.avg_per_thread_result.throughput().into_decimalsize()
+                    ));
+                });
+            });
         });
     }
 }
