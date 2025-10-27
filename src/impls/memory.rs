@@ -9,7 +9,9 @@ use std::{
     sync::{Arc, LazyLock},
     time::{Duration, Instant},
 };
-
+mod x64_strategies;
+mod strategies;
+pub use strategies::*;
 use crate::ProgressTracker;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -25,6 +27,7 @@ pub enum MemoryInitializationType {
     Random,
     Ones,
 }
+
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum State {
