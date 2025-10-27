@@ -202,9 +202,7 @@ impl MemoryThroughputBench {
                 MemoryOperation::Write => {
                     for chunk in memory.chunks_exact_mut(chunk_size) {
                         black_box(chunk.as_mut_ptr());
-                        for byte in &mut *chunk {
-                            *byte = black_box(0b10101010);
-                        }
+                        unsafe { chunk.as_mut_ptr().write_bytes(0b10101010, chunk.len()) };
                         black_box(chunk.as_mut_ptr());
                         progress.add(chunk.len() as u64);
                         if progress.stop_requested() {
@@ -219,7 +217,10 @@ impl MemoryThroughputBench {
                         .zip(to.chunks_exact_mut(chunk_size))
                     {
                         black_box((from.as_mut_ptr(), to.as_mut_ptr()));
-                        to.copy_from_slice(from);
+                        unsafe {
+                            to.as_mut_ptr()
+                                .copy_from_nonoverlapping(from.as_mut_ptr(), to.len());
+                        }
                         black_box((from.as_mut_ptr(), to.as_mut_ptr()));
                         progress.add((from.len() + to.len()) as u64);
                         if progress.stop_requested() {

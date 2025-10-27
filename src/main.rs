@@ -11,7 +11,7 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
     eframe::run_native(
-        "My egui App",
+        "Benchmarks",
         options,
         Box::new(|_cc| {
             // // This gives us image support:
@@ -51,17 +51,25 @@ impl MyApp {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         egui::TopBottomPanel::bottom("Render stats").show(ctx, |ui| {
-            ui.label(format!(
-                "Render time: {:.2}ms",
-                frame.info().cpu_usage.unwrap_or_default() * 1000.0
-            ));
+            ui.horizontal(|ui| {
+                ui.label(format!(
+                    "Render time: {:.2}ms",
+                    frame.info().cpu_usage.unwrap_or_default() * 1000.0
+                ));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    egui::widgets::global_theme_preference_switch(ui);
+                })
+            })
         });
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Memory Throughput");
             egui::Grid::new("memory_benchmark_options").show(ui, |ui| {
                 let height = ui.text_style_height(&egui::TextStyle::Body);
+                let valign = egui::Align::Max;
                 let value_size = [height * 4.0, height];
-                ui.label("Thread(s)");
+                ui.with_layout(egui::Layout::right_to_left(valign), |ui| {
+                    ui.label("Thread(s)");
+                });
                 ui.add_sized(
                     value_size,
                     egui::DragValue::new(&mut self.benchmark_config.threads)
@@ -69,7 +77,9 @@ impl eframe::App for MyApp {
                         .range(1..=1024),
                 );
                 ui.end_row();
-                ui.label("Passes");
+                ui.with_layout(egui::Layout::right_to_left(valign), |ui| {
+                    ui.label("Passes");
+                });
                 ui.add_sized(
                     value_size,
                     egui::DragValue::new(&mut self.benchmark_config.passes)
@@ -77,7 +87,9 @@ impl eframe::App for MyApp {
                         .range(1..=1024),
                 );
                 ui.end_row();
-                ui.label("Memory per thread");
+                ui.with_layout(egui::Layout::right_to_left(valign), |ui| {
+                    ui.label("Memory per thread");
+                });
                 ui.add_sized(
                     value_size,
                     egui::DragValue::new(&mut self.benchmark_config.size_per_thread)
@@ -102,7 +114,9 @@ impl eframe::App for MyApp {
                         }),
                 );
                 ui.end_row();
-                ui.label("Operation");
+                ui.with_layout(egui::Layout::right_to_left(valign), |ui| {
+                    ui.label("Operation");
+                });
                 egui::ComboBox::from_id_salt("memory_benchmark_option_operation")
                     .selected_text(format!("{:?}", self.benchmark_config.operation))
                     .width(value_size[0])
@@ -114,7 +128,9 @@ impl eframe::App for MyApp {
                         ui.selectable_value(op, Copy, "Copy");
                     });
                 ui.end_row();
-                ui.label("Fill with");
+                ui.with_layout(egui::Layout::right_to_left(valign), |ui| {
+                    ui.label("Fill with");
+                });
                 egui::ComboBox::from_id_salt("memory_benchmark_option_init_type")
                     .selected_text(format!("{:?}", self.benchmark_config.init_type))
                     .width(value_size[0])
@@ -125,16 +141,19 @@ impl eframe::App for MyApp {
                         ui.selectable_value(init, Ones, "Ones");
                         ui.selectable_value(init, Random, "Random");
                     });
-            });
-            ui.horizontal(|ui| {
+                ui.end_row();
                 let start_benchmark = ui.add_enabled(
                     self.running_benchmark.is_none(),
-                    egui::Button::new("Start benchmark."),
+                    egui::Button::new("Start benchmark"),
                 );
-                let cancel_benchmark = ui.add_enabled(
-                    self.running_benchmark.is_some(),
-                    egui::Button::new("Cancel"),
-                );
+                let cancel_benchmark = ui
+                    .with_layout(egui::Layout::right_to_left(egui::Align::Max), |ui| {
+                        ui.add_enabled(
+                            self.running_benchmark.is_some(),
+                            egui::Button::new("Cancel"),
+                        )
+                    })
+                    .response;
                 if start_benchmark.clicked() {
                     self.running_benchmark = Some(self.benchmark_config.clone().start())
                 }
@@ -164,7 +183,7 @@ impl eframe::App for MyApp {
                     self.avg_per_thread_result = avg_per_thread_result;
                 } else {
                     self.running_benchmark = Some(running);
-                    ctx.request_repaint_after(Duration::from_millis(10));
+                    ctx.request_repaint_after(Duration::from_secs(1) / 60);
                 }
                 self.last_progress = Some(progress.load());
             }
@@ -186,7 +205,7 @@ impl eframe::App for MyApp {
                     egui::ProgressBar::new(progress).text(stage),
                 );
             });
-            ui.heading("Results(per thread)");
+            ui.heading("Results");
             ui.add_enabled_ui(!self.total_result.runtime.is_zero(), |ui| {
                 ui.label("Throughput");
                 ui.indent("throughput", |ui| {
