@@ -1,6 +1,6 @@
 #![allow(unused)]
 use nix::unistd::SysconfVar;
-use rand::{Rng, RngCore, rng};
+use rand::{rng, Rng, RngCore, SeedableRng};
 use std::{
     fmt::Display,
     hint::black_box,
@@ -167,7 +167,7 @@ impl MemoryThroughputBench {
                     }
                 }
                 MemoryInitializationType::Random => {
-                    let mut rng = rng();
+                    let mut rng = rand::rngs::SmallRng::from_os_rng();
                     for chunk in memory.chunks_exact_mut(chunk_size) {
                         rng.fill_bytes(chunk);
                         progress.add(chunk.len() as u64);
