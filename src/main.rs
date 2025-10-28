@@ -37,7 +37,7 @@ impl MyApp {
                 threads: 1,
                 operation: memory::MemoryOperation::Read,
                 init_type: memory::MemoryInitializationType::Zeros,
-                size_per_thread: *PAGE_SIZE * 1024 * 10,
+                memory_size: *PAGE_SIZE * 1024 * 10,
                 strategy: memory::OperationStrategy::Generic,
             },
             running_benchmark: None,
@@ -88,11 +88,11 @@ impl eframe::App for MyApp {
                 );
                 ui.end_row();
                 ui.with_layout(egui::Layout::right_to_left(valign), |ui| {
-                    ui.label("Memory per thread");
+                    ui.label("Memory");
                 });
                 ui.add_sized(
                     value_size,
-                    egui::DragValue::new(&mut self.benchmark_config.size_per_thread)
+                    egui::DragValue::new(&mut self.benchmark_config.memory_size)
                         .speed((*PAGE_SIZE * 16) as f64)
                         .range(*PAGE_SIZE * 16..=*PAGE_SIZE * 1024 * 1024 * 32)
                         .custom_formatter(|val, _| val.into_decimalsize().to_string())

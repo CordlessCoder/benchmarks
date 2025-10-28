@@ -51,7 +51,7 @@ impl Display for State {
 
 #[derive(Debug, Clone)]
 pub struct Config {
-    pub size_per_thread: usize,
+    pub memory_size: usize,
     pub passes: usize,
     pub threads: usize,
     pub operation: MemoryOperation,
@@ -84,7 +84,7 @@ impl Config {
         bench
     }
     fn thread_memory_layout(&self) -> core::alloc::Layout {
-        core::alloc::Layout::array::<u8>(self.size_per_thread)
+        core::alloc::Layout::array::<u8>(self.memory_size / self.threads)
             .unwrap()
             .align_to(*PAGE_SIZE)
             .unwrap()
