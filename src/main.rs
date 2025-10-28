@@ -175,7 +175,7 @@ impl eframe::App for MyApp {
                             egui::Button::new("Cancel"),
                         )
                     })
-                    .response;
+                    .inner;
                 if start_benchmark.clicked() {
                     self.running_benchmark = Some(self.benchmark_config.clone().start())
                 }
