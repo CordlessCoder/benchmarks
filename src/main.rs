@@ -2,7 +2,6 @@
 use benchmarks::{BenchmarkProgressSnapshop, impls::memory::PAGE_SIZE, impls::*};
 use eframe::egui;
 use sizef::IntoSize;
-use std::time::Duration;
 
 fn main() -> eframe::Result {
     // env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -95,7 +94,7 @@ impl eframe::App for MyApp {
                     value_size,
                     egui::DragValue::new(&mut self.benchmark_config.size_per_thread)
                         .speed((*PAGE_SIZE * 16) as f64)
-                        .range(*PAGE_SIZE..=*PAGE_SIZE * 1024 * 1024 * 32)
+                        .range(*PAGE_SIZE * 16..=*PAGE_SIZE * 1024 * 1024 * 32)
                         .custom_formatter(|val, _| val.into_decimalsize().to_string())
                         .custom_parser(|input| {
                             let input = input.trim();
@@ -141,6 +140,7 @@ impl eframe::App for MyApp {
                         ui.selectable_value(op, Generic, "Generic");
                         ui.selectable_value(op, Int32, "Int32");
                         ui.selectable_value(op, Int64, "Int64");
+                        ui.selectable_value(op, Int128, "Int128");
                         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                         ui.selectable_value(op, SSE, "SSE");
                         #[cfg(target_arch = "x86_64")]
@@ -204,7 +204,7 @@ impl eframe::App for MyApp {
                     self.avg_per_thread_result = avg_per_thread_result;
                 } else {
                     self.running_benchmark = Some(running);
-                    ctx.request_repaint_after(Duration::from_secs(1) / 60);
+                    ctx.request_repaint();
                 }
                 self.last_progress = Some(progress.load());
             }

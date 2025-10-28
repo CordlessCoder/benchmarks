@@ -10,7 +10,7 @@ use std::{
     time::{Duration, Instant},
 };
 mod strategies;
-mod x64_strategies;
+mod strategy_internals;
 use crate::ProgressTracker;
 pub use strategies::*;
 
@@ -191,13 +191,36 @@ impl MemoryThroughputBench {
             }
 
             let start = Instant::now();
+
             match config.operation {
-                MemoryOperation::Read => work_read_fn(memory),
-                MemoryOperation::Write => work_write_fn(memory),
+                MemoryOperation::Read => {
+                    for chunk in memory.chunks_exact_mut(chunk_size) {
+                        work_read_fn(chunk);
+                        progress.add(chunk.len() as u64);
+                        if progress.stop_requested() {
+                            return None;
+                        }
+                    }
+                }
+                MemoryOperation::Write => {
+                    for chunk in memory.chunks_exact_mut(chunk_size) {
+                        work_write_fn(chunk);
+                        progress.add(chunk.len() as u64);
+                        if progress.stop_requested() {
+                            return None;
+                        }
+                    }
+                }
                 MemoryOperation::Copy => {
-                    let (from, to) = memory.split_at_mut(memory.len() / 2);
-                    unsafe {
-                        work_copy_fn(from.as_ptr(), to.as_mut_ptr(), from.len());
+                    for chunk in memory.chunks_exact_mut(chunk_size) {
+                        let (from, to) = chunk.split_at_mut(chunk.len() / 2);
+                        unsafe {
+                            work_copy_fn(from.as_ptr(), to.as_mut_ptr(), from.len());
+                        }
+                        progress.add(chunk.len() as u64);
+                        if progress.stop_requested() {
+                            return None;
+                        }
                     }
                 }
             }
