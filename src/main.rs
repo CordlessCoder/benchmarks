@@ -1,6 +1,12 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
-use benchmarks::{BenchmarkProgressSnapshop, impls::memory::PAGE_SIZE, impls::*};
-use eframe::egui;
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+use std::hash::Hash;
+
+// hide console window on Windows in release
+use benchmarks::{
+    BenchmarkProgressSnapshop, SelectableEnum,
+    impls::{memory::PAGE_SIZE, *},
+};
+use eframe::egui::{self, ComboBox};
 use sizef::IntoSize;
 
 fn main() -> eframe::Result {
@@ -12,12 +18,7 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "Benchmarks",
         options,
-        Box::new(|_cc| {
-            // // This gives us image support:
-            // egui_extras::install_image_loaders(&cc.egui_ctx);
-
-            Ok(Box::new(MyApp::new()))
-        }),
+        Box::new(|_cc| Ok(Box::new(MyApp::new()))),
     )
 }
 
@@ -29,6 +30,24 @@ struct MyApp {
     avg_per_thread_result: memory::TestResult,
 }
 
+fn selectable_enum<E: SelectableEnum>(
+    ui: &mut egui::Ui,
+    id: impl Hash,
+    selected: &mut E,
+    set_options: impl FnOnce(ComboBox) -> ComboBox,
+) {
+    set_options(egui::ComboBox::from_id_salt(id))
+        .selected_text(selected.as_str())
+        .show_ui(ui, |ui| {
+            for value in E::all_values() {
+                if !value.is_enabled() {
+                    continue;
+                }
+                ui.selectable_value(selected, value.clone(), value.as_str());
+            }
+        });
+}
+
 impl MyApp {
     fn new() -> Self {
         Self {
@@ -38,7 +57,7 @@ impl MyApp {
                 operation: memory::MemoryOperation::Read,
                 init_type: memory::MemoryInitializationType::Zeros,
                 memory_size: *PAGE_SIZE * 1024 * 10,
-                strategy: memory::OperationStrategy::Generic,
+                strategy: memory::OperationStrategy::Bytewise,
             },
             running_benchmark: None,
             last_progress: None,
@@ -66,7 +85,7 @@ impl eframe::App for MyApp {
             egui::Grid::new("memory_benchmark_options").show(ui, |ui| {
                 let height = ui.text_style_height(&egui::TextStyle::Body);
                 let valign = egui::Align::Max;
-                let value_size = [height * 4.0, height];
+                let value_size = [height * 5.5, height * 1.2];
                 ui.with_layout(egui::Layout::right_to_left(valign), |ui| {
                     ui.label("Thread(s)");
                 });
@@ -94,7 +113,10 @@ impl eframe::App for MyApp {
                     value_size,
                     egui::DragValue::new(&mut self.benchmark_config.memory_size)
                         .speed((*PAGE_SIZE * 16) as f64)
-                        .range(*PAGE_SIZE * 4 * self.benchmark_config.threads..=*PAGE_SIZE * 1024 * 1024 * 32)
+                        .range(
+                            *PAGE_SIZE * 4 * self.benchmark_config.threads
+                                ..=*PAGE_SIZE * 1024 * 1024 * 32,
+                        )
                         .clamp_existing_to_range(true)
                         .custom_formatter(|val, _| val.into_decimalsize().to_string())
                         .custom_parser(|input| {
@@ -105,9 +127,9 @@ impl eframe::App for MyApp {
                                 .count();
                             let (number, suffix) = input.split_at(digits);
                             let multiplier = match suffix.trim_start() {
-                                "" | "b" | "B" | "byte" => 1.0,
+                                "b" | "B" | "byte" => 1.0,
                                 "k" | "K" | "kb" | "KB" | "kib" | "KiB" => 1024.0,
-                                "m" | "M" | "mb" | "MB" | "mib" | "MiB" => 1024.0 * 1024.0,
+                                "" | "m" | "M" | "mb" | "MB" | "mib" | "MiB" => 1024.0 * 1024.0,
                                 "g" | "G" | "gb" | "GB" | "gib" | "GiB" => 1024.0 * 1024.0 * 1024.0,
                                 _ => return None,
                             };
@@ -118,51 +140,32 @@ impl eframe::App for MyApp {
                 ui.with_layout(egui::Layout::right_to_left(valign), |ui| {
                     ui.label("Operation");
                 });
-                egui::ComboBox::from_id_salt("memory_benchmark_option_operation")
-                    .selected_text(format!("{:?}", self.benchmark_config.operation))
-                    .width(value_size[0])
-                    .show_ui(ui, |ui| {
-                        use memory::MemoryOperation::*;
-                        let op = &mut self.benchmark_config.operation;
-                        ui.selectable_value(op, Read, "Read");
-                        ui.selectable_value(op, Write, "Write");
-                        ui.selectable_value(op, Copy, "Copy");
-                    });
+                selectable_enum(
+                    ui,
+                    "memory_benchmark_option_operation",
+                    &mut self.benchmark_config.operation,
+                    |ui| ui.width(value_size[0]),
+                );
                 ui.end_row();
                 ui.with_layout(egui::Layout::right_to_left(valign), |ui| {
                     ui.label("Strategy");
                 });
-                egui::ComboBox::from_id_salt("memory_benchmark_option_strategy")
-                    .selected_text(format!("{:?}", self.benchmark_config.strategy))
-                    .width(value_size[0])
-                    .show_ui(ui, |ui| {
-                        use memory::OperationStrategy::*;
-                        let op = &mut self.benchmark_config.strategy;
-                        ui.selectable_value(op, Generic, "Generic");
-                        ui.selectable_value(op, Int32, "Int32");
-                        ui.selectable_value(op, Int64, "Int64");
-                        ui.selectable_value(op, Int128, "Int128");
-                        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-                        ui.selectable_value(op, SSE, "SSE");
-                        #[cfg(target_arch = "x86_64")]
-                        ui.selectable_value(op, AVX2, "AVX2");
-                        #[cfg(target_arch = "x86_64")]
-                        ui.selectable_value(op, AVX512, "AVX512");
-                    });
+                selectable_enum(
+                    ui,
+                    "memory_benchmark_option_strategy",
+                    &mut self.benchmark_config.strategy,
+                    |ui| ui.width(value_size[0]),
+                );
                 ui.end_row();
                 ui.with_layout(egui::Layout::right_to_left(valign), |ui| {
                     ui.label("Fill with");
                 });
-                egui::ComboBox::from_id_salt("memory_benchmark_option_init_type")
-                    .selected_text(format!("{:?}", self.benchmark_config.init_type))
-                    .width(value_size[0])
-                    .show_ui(ui, |ui| {
-                        use memory::MemoryInitializationType::*;
-                        let init = &mut self.benchmark_config.init_type;
-                        ui.selectable_value(init, Zeros, "Zeros");
-                        ui.selectable_value(init, Ones, "Ones");
-                        ui.selectable_value(init, Random, "Random");
-                    });
+                selectable_enum(
+                    ui,
+                    "memory_benchmark_option_init_type",
+                    &mut self.benchmark_config.init_type,
+                    |ui| ui.width(value_size[0]),
+                );
                 ui.end_row();
                 let start_benchmark = ui.add_enabled(
                     self.running_benchmark.is_none(),

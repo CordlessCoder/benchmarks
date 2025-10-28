@@ -1,9 +1,11 @@
+use crate::SelectableEnum;
+
 use super::strategy_internals::*;
 use std::hint::black_box;
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum OperationStrategy {
     #[default]
-    Generic,
+    Bytewise,
     Int32,
     Int64,
     Int128,
@@ -15,13 +17,43 @@ pub enum OperationStrategy {
     AVX512,
 }
 
-impl OperationStrategy {
-    pub fn is_enabled(&self) -> bool {
+impl SelectableEnum for OperationStrategy {
+    fn all_values() -> &'static [Self] {
+        use OperationStrategy::*;
+        &[
+            Bytewise,
+            Int32,
+            Int64,
+            Int128,
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            SSE,
+            #[cfg(target_arch = "x86_64")]
+            AVX2,
+            #[cfg(target_arch = "x86_64")]
+            AVX512,
+        ]
+    }
+    fn as_str(&self) -> &'static str {
+        use OperationStrategy::*;
+        match self {
+            Bytewise => "Bytewise",
+            Int32 => "32-bit",
+            Int64 => "64-bit",
+            Int128 => "128-bit",
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            SSE => "128-bit SSE",
+            #[cfg(target_arch = "x86_64")]
+            AVX2 => "256-bit AVX",
+            #[cfg(target_arch = "x86_64")]
+            AVX512 => "512-bit AVX",
+        }
+    }
+    fn is_enabled(&self) -> bool {
         use OperationStrategy::*;
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         use std::arch::is_x86_feature_detected;
         match self {
-            Generic | Int32 | Int64 | Int128 => true,
+            Bytewise | Int32 | Int64 | Int128 => true,
             #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             SSE => is_x86_feature_detected!("sse"),
             #[cfg(target_arch = "x86_64")]
@@ -30,12 +62,15 @@ impl OperationStrategy {
             AVX512 => is_x86_feature_detected!("avx512f"),
         }
     }
+}
+
+impl OperationStrategy {
     pub const fn read_fn(&self) -> fn(&mut [u8]) {
         use OperationStrategy::*;
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         use core::arch::x86_64 as x86;
         match self {
-            Generic => read_by::<8, usize>,
+            Bytewise => read_by::<8, usize>,
             Int32 => read_by::<16, u32>,
             Int64 => read_by::<16, u64>,
             Int128 => read_by::<16, u128>,
@@ -64,7 +99,7 @@ impl OperationStrategy {
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         use core::arch::x86_64 as x86;
         match self {
-            Generic => |data| unsafe {
+            Bytewise => |data| unsafe {
                 data.as_mut_ptr().write_bytes(0xAA, data.len());
             },
             Int32 => |data| unsafe { write_by::<16, u32>(data, 0xAAAAAAAA) },
@@ -101,7 +136,7 @@ impl OperationStrategy {
         use core::arch::x86_64 as x86;
         use core::mem::size_of;
         match self {
-            Generic => |from, to, len| unsafe {
+            Bytewise => |from, to, len| unsafe {
                 to.copy_from_nonoverlapping(from, len);
             },
             Int32 => |from, to, len| unsafe {

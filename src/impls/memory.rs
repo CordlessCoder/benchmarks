@@ -13,7 +13,7 @@ use std::{
 };
 mod strategies;
 mod strategy_internals;
-use crate::ProgressTracker;
+use crate::{ProgressTracker, SelectableEnum};
 pub use strategies::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -23,11 +23,41 @@ pub enum MemoryOperation {
     Copy,
 }
 
+impl SelectableEnum for MemoryOperation {
+    fn all_values() -> &'static [Self] {
+        use MemoryOperation::*;
+        &[Read, Write, Copy]
+    }
+    fn as_str(&self) -> &'static str {
+        use MemoryOperation::*;
+        match self {
+            Read => "Read",
+            Write => "Write",
+            Copy => "Copy",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MemoryInitializationType {
     Zeros,
     Random,
     Ones,
+}
+
+impl SelectableEnum for MemoryInitializationType {
+    fn all_values() -> &'static [Self] {
+        use MemoryInitializationType::*;
+        &[Zeros, Ones, Random]
+    }
+    fn as_str(&self) -> &'static str {
+        use MemoryInitializationType::*;
+        match self {
+            Zeros => "Zeros",
+            Ones => "Ones",
+            Random => "Random",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

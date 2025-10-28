@@ -7,7 +7,16 @@ use std::{
     },
 };
 
-/// A lock-free, atomic state of a progress bar
+pub trait SelectableEnum: Sized + Clone + 'static + PartialEq {
+    fn all_values() -> &'static [Self];
+    fn is_enabled(&self) -> bool {
+        true
+    }
+    fn as_str(&self) -> &'static str;
+}
+
+/// A lock-free, atomic progress bar
+/// Also used for synchronizing multiple workers to the same stages.
 #[derive(Debug)]
 pub struct ProgressTracker<State: Clone> {
     stop_requested: AtomicBool,
