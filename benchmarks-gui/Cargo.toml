@@ -6,8 +6,10 @@ edition = "2024"
 [dependencies]
 benchmarks-core = { version = "0.1.0", path = "../benchmarks-core" }
 eframe = { version = "0.33.0", features = ["persistence", "wgpu"] }
+winit = "0.30.12"
+
 nix.workspace = true
 rand.workspace = true
 seq-macro.workspace = true
 sizef.workspace = true
-winit = "0.30.12"
+benchmarks-memory = { version = "0.1.0", path = "../benchmarks-memory" }

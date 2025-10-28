@@ -110,21 +110,21 @@ impl OperationStrategy {
             #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             SSE => |data| unsafe {
                 let value = x86::_mm_set1_epi8(0xAA_u8 as i8);
-                for_each_aligned_value::<32, x86::__m128i, ()>(data, |slot| unsafe {
-                    x86::_mm_stream_si128(slot.as_mut_ptr(), value);
+                for_each_aligned_value::<32, x86::__m128i, ()>(data, |slot| {
+                    x86::_mm_stream_si128(slot.as_mut_ptr(), value)
                 })
             },
             #[cfg(target_arch = "x86_64")]
             AVX2 => |data| unsafe {
                 let value = x86::_mm256_set1_epi8(0xAA_u8 as i8);
-                for_each_aligned_value::<64, x86::__m256i, ()>(data, |slot| unsafe {
+                for_each_aligned_value::<64, x86::__m256i, ()>(data, |slot| {
                     x86::_mm256_stream_si256(slot.as_mut_ptr(), value);
                 })
             },
             #[cfg(target_arch = "x86_64")]
             AVX512 => |data| unsafe {
                 let value = x86::_mm512_set1_epi8(0xAA_u8 as i8);
-                for_each_aligned_value::<64, x86::__m512i, ()>(data, |slot| unsafe {
+                for_each_aligned_value::<64, x86::__m512i, ()>(data, |slot| {
                     x86::_mm512_stream_si512(slot.as_mut_ptr(), value);
                 })
             },

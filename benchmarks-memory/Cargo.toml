@@ -1,0 +1,10 @@
+[package]
+name = "benchmarks-memory"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+benchmarks-core = { version = "0.1.0", path = "../benchmarks-core" }
+nix.workspace = true
+rand.workspace = true
+seq-macro.workspace = true
