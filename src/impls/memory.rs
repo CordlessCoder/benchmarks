@@ -1,10 +1,12 @@
 #![allow(unused)]
 use nix::unistd::SysconfVar;
-use rand::{rng, Rng, RngCore, SeedableRng};
+use rand::{Rng, RngCore, SeedableRng, rng};
 use std::{
+    alloc::Layout,
     fmt::Display,
     hint::black_box,
     mem::MaybeUninit,
+    ops::{Deref, DerefMut},
     ptr::NonNull,
     sync::{Arc, LazyLock},
     time::{Duration, Instant},
@@ -109,6 +111,32 @@ pub static PAGE_SIZE: LazyLock<usize> = LazyLock::new(|| {
         .unwrap_or(4096) as usize
 });
 
+struct OwnedPtr<T: ?Sized> {
+    ptr: *mut T,
+    layout: Layout,
+}
+
+impl<T: ?Sized> Drop for OwnedPtr<T> {
+    fn drop(&mut self) {
+        unsafe {
+            std::alloc::dealloc(self.ptr.cast(), self.layout);
+        }
+    }
+}
+
+impl<T: ?Sized> Deref for OwnedPtr<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        unsafe { &*self.ptr }
+    }
+}
+
+impl<T: ?Sized> DerefMut for OwnedPtr<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { &mut *self.ptr }
+    }
+}
+
 impl MemoryThroughputBench {
     pub fn progress(&self) -> Arc<ProgressTracker<State>> {
         Arc::clone(&self.progress)
@@ -141,12 +169,13 @@ impl MemoryThroughputBench {
         let chunk_size = *PAGE_SIZE * 4;
         let mem = config.thread_memory_layout();
         let mut memory = unsafe {
-            let ptr = std::alloc::alloc_zeroed(mem);
+            let ptr = std::alloc::alloc(mem);
             let Some(ptr) = NonNull::new(ptr) else {
                 std::alloc::handle_alloc_error(mem);
             };
-            let slice: *mut [u8] = core::slice::from_raw_parts_mut(ptr.as_ptr(), mem.size());
-            Box::from_raw(slice)
+            let ptr: *mut [MaybeUninit<u8>] =
+                core::slice::from_raw_parts_mut(ptr.as_ptr().cast(), mem.size());
+            OwnedPtr { ptr, layout: mem }
         };
         progress.add(1);
         progress.transition_state(State::Initializing, (mem.size() * config.threads) as u64);
@@ -156,10 +185,22 @@ impl MemoryThroughputBench {
         unsafe {
             match config.init_type {
                 // The data was zeroed on initialization
-                MemoryInitializationType::Zeros => (),
+                MemoryInitializationType::Zeros => {
+                    for chunk in memory.chunks_exact_mut(chunk_size) {
+                        chunk.iter_mut().for_each(|b| {
+                            b.write(0);
+                        });
+                        progress.add(chunk.len() as u64);
+                        if progress.stop_requested() {
+                            return None;
+                        }
+                    }
+                }
                 MemoryInitializationType::Ones => {
                     for chunk in memory.chunks_exact_mut(chunk_size) {
-                        chunk.iter_mut().for_each(|b| *b = u8::MAX);
+                        chunk.iter_mut().for_each(|b| {
+                            b.write(u8::MAX);
+                        });
                         progress.add(chunk.len() as u64);
                         if progress.stop_requested() {
                             return None;
@@ -169,7 +210,13 @@ impl MemoryThroughputBench {
                 MemoryInitializationType::Random => {
                     let mut rng = rand::rngs::SmallRng::from_os_rng();
                     for chunk in memory.chunks_exact_mut(chunk_size) {
-                        rng.fill_bytes(chunk);
+                        chunk.chunks_mut(8).for_each(|c| {
+                            let bytes = rng.next_u64().to_ne_bytes();
+                            unsafe {
+                                c.as_mut_ptr()
+                                    .copy_from_nonoverlapping(bytes.as_ptr().cast(), c.len());
+                            }
+                        });
                         progress.add(chunk.len() as u64);
                         if progress.stop_requested() {
                             return None;
@@ -178,6 +225,8 @@ impl MemoryThroughputBench {
                 }
             }
         };
+        // SAFETY: At this point the memory must have been initialized
+        let mut memory: OwnedPtr<[u8]> = unsafe { core::mem::transmute(memory) };
         let mut total_runtime = Duration::ZERO;
         let work_read_fn = config.strategy.read_fn();
         let work_write_fn = config.strategy.write_fn();
