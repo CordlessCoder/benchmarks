@@ -140,12 +140,13 @@ impl MemoryThroughputBench {
     fn run(config: Config, progress: Arc<ProgressTracker<State>>) -> Option<TestResult> {
         let chunk_size = *PAGE_SIZE * 4;
         let mem = config.thread_memory_layout();
-        let memory: &mut [u8] = unsafe {
+        let mut memory = unsafe {
             let ptr = std::alloc::alloc_zeroed(mem);
             let Some(ptr) = NonNull::new(ptr) else {
                 std::alloc::handle_alloc_error(mem);
             };
-            core::slice::from_raw_parts_mut(ptr.as_ptr(), mem.size())
+            let slice: *mut [u8] = core::slice::from_raw_parts_mut(ptr.as_ptr(), mem.size());
+            Box::from_raw(slice)
         };
         progress.add(1);
         progress.transition_state(State::Initializing, (mem.size() * config.threads) as u64);
