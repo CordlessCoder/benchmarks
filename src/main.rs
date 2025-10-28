@@ -39,6 +39,7 @@ impl MyApp {
                 operation: memory::MemoryOperation::Read,
                 init_type: memory::MemoryInitializationType::Zeros,
                 size_per_thread: *PAGE_SIZE * 1024 * 10,
+                strategy: memory::OperationStrategy::Generic,
             },
             running_benchmark: None,
             last_progress: None,
@@ -126,6 +127,26 @@ impl eframe::App for MyApp {
                         ui.selectable_value(op, Read, "Read");
                         ui.selectable_value(op, Write, "Write");
                         ui.selectable_value(op, Copy, "Copy");
+                    });
+                ui.end_row();
+                ui.with_layout(egui::Layout::right_to_left(valign), |ui| {
+                    ui.label("Strategy");
+                });
+                egui::ComboBox::from_id_salt("memory_benchmark_option_strategy")
+                    .selected_text(format!("{:?}", self.benchmark_config.strategy))
+                    .width(value_size[0])
+                    .show_ui(ui, |ui| {
+                        use memory::OperationStrategy::*;
+                        let op = &mut self.benchmark_config.strategy;
+                        ui.selectable_value(op, Generic, "Generic");
+                        ui.selectable_value(op, Int32, "Int32");
+                        ui.selectable_value(op, Int64, "Int64");
+                        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+                        ui.selectable_value(op, SSE, "SSE");
+                        #[cfg(target_arch = "x86_64")]
+                        ui.selectable_value(op, AVX2, "AVX2");
+                        #[cfg(target_arch = "x86_64")]
+                        ui.selectable_value(op, AVX512, "AVX512");
                     });
                 ui.end_row();
                 ui.with_layout(egui::Layout::right_to_left(valign), |ui| {

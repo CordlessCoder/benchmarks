@@ -9,10 +9,10 @@ use std::{
     sync::{Arc, LazyLock},
     time::{Duration, Instant},
 };
-mod x64_strategies;
 mod strategies;
-pub use strategies::*;
+mod x64_strategies;
 use crate::ProgressTracker;
+pub use strategies::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MemoryOperation {
@@ -27,7 +27,6 @@ pub enum MemoryInitializationType {
     Random,
     Ones,
 }
-
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum State {
@@ -57,6 +56,7 @@ pub struct Config {
     pub threads: usize,
     pub operation: MemoryOperation,
     pub init_type: MemoryInitializationType,
+    pub strategy: OperationStrategy,
 }
 
 #[derive(Debug)]
@@ -178,6 +178,9 @@ impl MemoryThroughputBench {
             }
         };
         let mut total_runtime = Duration::ZERO;
+        let work_read_fn = config.strategy.read_fn();
+        let work_write_fn = config.strategy.write_fn();
+        let work_copy_fn = config.strategy.copy_nonoverlapping_fn();
         for pass in 0..config.passes {
             progress.transition_state(
                 State::Executing(pass + 1, config.passes),
@@ -189,46 +192,12 @@ impl MemoryThroughputBench {
 
             let start = Instant::now();
             match config.operation {
-                MemoryOperation::Read => {
-                    for chunk in memory.chunks_exact_mut(chunk_size) {
-                        black_box(chunk.as_mut_ptr());
-                        for byte in &mut *chunk {
-                            _ = black_box(*byte);
-                        }
-                        black_box(chunk.as_mut_ptr());
-                        progress.add(chunk.len() as u64);
-                        if progress.stop_requested() {
-                            return None;
-                        }
-                    }
-                }
-                MemoryOperation::Write => {
-                    for chunk in memory.chunks_exact_mut(chunk_size) {
-                        black_box(chunk.as_mut_ptr());
-                        unsafe { chunk.as_mut_ptr().write_bytes(0b10101010, chunk.len()) };
-                        black_box(chunk.as_mut_ptr());
-                        progress.add(chunk.len() as u64);
-                        if progress.stop_requested() {
-                            return None;
-                        }
-                    }
-                }
+                MemoryOperation::Read => work_read_fn(memory),
+                MemoryOperation::Write => work_write_fn(memory),
                 MemoryOperation::Copy => {
                     let (from, to) = memory.split_at_mut(memory.len() / 2);
-                    for (from, to) in from
-                        .chunks_exact_mut(chunk_size)
-                        .zip(to.chunks_exact_mut(chunk_size))
-                    {
-                        black_box((from.as_mut_ptr(), to.as_mut_ptr()));
-                        unsafe {
-                            to.as_mut_ptr()
-                                .copy_from_nonoverlapping(from.as_mut_ptr(), to.len());
-                        }
-                        black_box((from.as_mut_ptr(), to.as_mut_ptr()));
-                        progress.add((from.len() + to.len()) as u64);
-                        if progress.stop_requested() {
-                            return None;
-                        }
+                    unsafe {
+                        work_copy_fn(from.as_ptr(), to.as_mut_ptr(), from.len());
                     }
                 }
             }
