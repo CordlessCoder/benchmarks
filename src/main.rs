@@ -94,7 +94,8 @@ impl eframe::App for MyApp {
                     value_size,
                     egui::DragValue::new(&mut self.benchmark_config.memory_size)
                         .speed((*PAGE_SIZE * 16) as f64)
-                        .range(*PAGE_SIZE * 16..=*PAGE_SIZE * 1024 * 1024 * 32)
+                        .range(*PAGE_SIZE * 4 * self.benchmark_config.threads..=*PAGE_SIZE * 1024 * 1024 * 32)
+                        .clamp_existing_to_range(true)
                         .custom_formatter(|val, _| val.into_decimalsize().to_string())
                         .custom_parser(|input| {
                             let input = input.trim();
