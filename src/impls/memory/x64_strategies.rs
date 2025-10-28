@@ -1,5 +1,5 @@
-use std::{hint::black_box, mem::MaybeUninit};
 use seq_macro::seq;
+use std::{hint::black_box, mem::MaybeUninit};
 
 pub(super) fn for_each_idx_chunked<const MAX_CHUNK: usize, U>(
     len: usize,
@@ -37,13 +37,13 @@ pub(super) fn for_each_aligned_value<const MAX_CHUNK: usize, T, U>(
     unsafe {
         let (_, mut data, _) = data.align_to_mut::<MaybeUninit<T>>();
         for_each_idx_chunked::<MAX_CHUNK, U>(data.len(), |idx| unsafe {
-            cb(black_box(data.get_unchecked_mut(idx)))
+            black_box(cb(black_box(data.get_unchecked_mut(idx))))
         });
     }
 }
 
 pub(super) fn read_by<const MAX_CHUNK: usize, T>(data: &mut [u8]) {
-    for_each_aligned_value::<MAX_CHUNK, T, T>(data, |v| unsafe { v.assume_init_read() });
+    for_each_aligned_value::<MAX_CHUNK, T, T>(data, |v| unsafe { black_box(v.assume_init_read()) });
 }
 
 pub(super) unsafe fn write_by<const MAX_CHUNK: usize, T: Copy>(data: &mut [u8], value: T) {
