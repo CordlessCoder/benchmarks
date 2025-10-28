@@ -1,4 +1,4 @@
-use crate::SelectableEnum;
+use benchmarks_core::SelectableEnum;
 
 use super::strategy_internals::*;
 use std::hint::black_box;

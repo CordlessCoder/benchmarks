@@ -13,7 +13,7 @@ use std::{
 };
 mod strategies;
 mod strategy_internals;
-use crate::{ProgressTracker, SelectableEnum};
+use benchmarks_core::{ProgressTracker, SelectableEnum};
 pub use strategies::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -172,7 +172,7 @@ impl MemoryThroughputBench {
         Arc::clone(&self.progress)
     }
     pub fn is_done(&self) -> bool {
-        self.progress.stop_requested() || *self.progress.state.lock().unwrap() == State::Done
+        self.progress.stop_requested() || self.progress.load_state() == State::Done
     }
     pub fn wait_for_results(self) -> Vec<TestResult> {
         let Self {

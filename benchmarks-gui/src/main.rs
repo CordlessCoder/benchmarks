@@ -2,10 +2,8 @@
 use std::hash::Hash;
 
 // hide console window on Windows in release
-use benchmarks::{
-    BenchmarkProgressSnapshop, SelectableEnum,
-    impls::{memory::PAGE_SIZE, *},
-};
+use benchmarks_core::{BenchmarkProgressSnapshop, SelectableEnum};
+use benchmarks_gui::impls::{memory::PAGE_SIZE, *};
 use eframe::egui::{self, ComboBox};
 use sizef::IntoSize;
 
