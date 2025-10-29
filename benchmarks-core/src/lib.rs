@@ -51,6 +51,7 @@ impl<State: PartialEq + Display + Clone> ProgressTracker<State> {
     }
     pub fn request_stop(&self) {
         self.stop_requested.store(true, Ordering::Relaxed);
+        self.state_transition.notify_all();
     }
     pub fn transition_state(&self, new_state: State, new_total: u64) {
         // The thread that will actually perform the state transition will be the thread with

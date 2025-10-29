@@ -170,7 +170,9 @@ impl MemoryThroughputBench {
         Arc::clone(&self.progress)
     }
     pub fn is_done(&self) -> bool {
-        self.progress.stop_requested() || self.progress.load_state() == State::Done
+        (self.progress.stop_requested() || self.progress.load_state() == State::Done) && {
+            self.threads.iter().all(|t| t.is_finished())
+        }
     }
     pub fn wait_for_results(self) -> Vec<TestResult> {
         let Self { threads, .. } = self;
