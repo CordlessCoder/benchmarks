@@ -1,10 +1,7 @@
 use seq_macro::seq;
 use std::{hint::black_box, mem::MaybeUninit};
 
-pub fn for_each_idx_chunked<const MAX_CHUNK: usize, U>(
-    len: usize,
-    mut cb: impl FnMut(usize) -> U,
-) {
+pub fn for_each_idx_chunked<const MAX_CHUNK: usize, U>(len: usize, mut cb: impl FnMut(usize) -> U) {
     let mut idx = 0;
     macro_rules! run_chunked {
         ($size:expr) => {
