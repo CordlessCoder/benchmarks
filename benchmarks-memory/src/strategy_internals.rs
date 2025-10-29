@@ -1,7 +1,7 @@
 use seq_macro::seq;
 use std::{hint::black_box, mem::MaybeUninit};
 
-pub(super) fn for_each_idx_chunked<const MAX_CHUNK: usize, U>(
+pub fn for_each_idx_chunked<const MAX_CHUNK: usize, U>(
     len: usize,
     mut cb: impl FnMut(usize) -> U,
 ) {
@@ -27,7 +27,7 @@ pub(super) fn for_each_idx_chunked<const MAX_CHUNK: usize, U>(
     run_chunked!(1);
 }
 
-pub(super) fn for_each_aligned_value<const MAX_CHUNK: usize, T, U>(
+pub fn for_each_aligned_value<const MAX_CHUNK: usize, T, U>(
     data: &mut [u8],
     mut cb: impl FnMut(&mut MaybeUninit<T>) -> U,
 ) {
@@ -40,11 +40,11 @@ pub(super) fn for_each_aligned_value<const MAX_CHUNK: usize, T, U>(
     }
 }
 
-pub(super) fn read_by<const MAX_CHUNK: usize, T>(data: &mut [u8]) {
+pub fn read_by<const MAX_CHUNK: usize, T>(data: &mut [u8]) {
     for_each_aligned_value::<MAX_CHUNK, T, T>(data, |v| unsafe { black_box(v.assume_init_read()) });
 }
 
-pub(super) unsafe fn write_by<const MAX_CHUNK: usize, T: Copy>(data: &mut [u8], value: T) {
+pub unsafe fn write_by<const MAX_CHUNK: usize, T: Copy>(data: &mut [u8], value: T) {
     for_each_aligned_value::<MAX_CHUNK, T, ()>(data, |v| {
         v.write(value);
     });

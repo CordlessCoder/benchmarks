@@ -33,7 +33,7 @@ pub struct BenchmarkProgressSnapshop<State> {
 impl<State: PartialEq + Display + Clone> ProgressTracker<State> {
     #[must_use]
     pub fn new(total: u64, threads: usize, state: State) -> Self {
-        ProgressTracker {
+        Self {
             total: AtomicU64::new(total),
             counter: AtomicU64::new(0),
             threads: AtomicUsize::new(threads),
@@ -64,6 +64,7 @@ impl<State: PartialEq + Display + Clone> ProgressTracker<State> {
         if transition_number + 1 == self.threads.load(Ordering::Relaxed) {
             // We have successfully transitioned state.
             *state = new_state;
+            core::mem::drop(state);
             // Reset counters
             self.threads_waiting_to_transition
                 .store(0, Ordering::Release);
@@ -76,7 +77,7 @@ impl<State: PartialEq + Display + Clone> ProgressTracker<State> {
                 .state_transition
                 .wait_while(state, |state| *state != new_state && !self.stop_requested())
                 .unwrap();
-        };
+        }
     }
     pub fn add(&self, amount: u64) {
         self.counter.fetch_add(amount, Ordering::Relaxed);
@@ -116,22 +117,28 @@ impl<State: PartialEq + Display + Clone> ProgressTracker<State> {
 }
 
 impl<State: Clone + Display + PartialEq> BenchmarkProgressSnapshop<State> {
+    #[must_use]
     pub fn was_cancelled(&self) -> bool {
         self.was_cancelled
     }
+    #[must_use]
     pub fn current_state(&self) -> State {
         self.state.clone()
     }
+    #[must_use]
     pub fn as_f32(&self) -> f32 {
         self.counter as f32 / self.total as f32
     }
 }
 
 pub trait SelectableEnum: Sized + Clone + 'static + PartialEq {
+    #[must_use]
     fn all_values() -> &'static [Self];
+    #[must_use]
     fn is_enabled(&self) -> bool {
         true
     }
+    #[must_use]
     fn as_str(&self) -> &'static str;
 }
 

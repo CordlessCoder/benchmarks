@@ -14,7 +14,7 @@ mod strategy_internals;
 use benchmarks_core::{ProgressTracker, SelectableEnum};
 pub use strategies::*;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MemoryOperation {
     Read,
     Write,
@@ -36,7 +36,7 @@ impl SelectableEnum for MemoryOperation {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MemoryInitializationType {
     Zeros,
     Random,
@@ -58,7 +58,7 @@ impl SelectableEnum for MemoryInitializationType {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum State {
     Allocating,
     Initializing,
@@ -97,6 +97,7 @@ pub struct MemoryThroughputBench {
 }
 
 impl Config {
+    #[must_use]
     pub fn start(self) -> MemoryThroughputBench {
         let progress = Arc::new(ProgressTracker::new(
             (self.thread_memory_layout().size() * self.threads) as u64,
@@ -128,6 +129,7 @@ pub struct TestResult {
     pub runtime: Duration,
 }
 impl TestResult {
+    #[must_use]
     pub fn throughput(&self) -> f64 {
         self.memory_processed as f64 / self.runtime.as_secs_f64()
     }
@@ -166,14 +168,17 @@ impl<T: ?Sized> DerefMut for OwnedPtr<T> {
 }
 
 impl MemoryThroughputBench {
+    #[must_use]
     pub fn progress(&self) -> Arc<ProgressTracker<State>> {
         Arc::clone(&self.progress)
     }
+    #[must_use]
     pub fn is_done(&self) -> bool {
         (self.progress.stop_requested() || self.progress.load_state() == State::Done) && {
             self.threads.iter().all(|t| t.is_finished())
         }
     }
+    #[must_use]
     pub fn wait_for_results(self) -> Vec<TestResult> {
         let Self { threads, .. } = self;
         let mut results = Vec::new();
@@ -189,9 +194,9 @@ impl MemoryThroughputBench {
         let config = self.config.clone();
         let progress = Arc::clone(&self.progress);
         self.threads
-            .push(std::thread::spawn(move || Self::run(config, progress)));
+            .push(std::thread::spawn(move || Self::run(&config, &progress)));
     }
-    fn run(config: Config, progress: Arc<ProgressTracker<State>>) -> Option<TestResult> {
+    fn run(config: &Config, progress: &Arc<ProgressTracker<State>>) -> Option<TestResult> {
         let chunk_size = *PAGE_SIZE * 4;
         let mem = config.thread_memory_layout();
         let mut memory = unsafe {
@@ -212,9 +217,9 @@ impl MemoryThroughputBench {
             // The data was zeroed on initialization
             MemoryInitializationType::Zeros => {
                 for chunk in memory.chunks_exact_mut(chunk_size) {
-                    chunk.iter_mut().for_each(|b| {
+                    for b in chunk.iter_mut() {
                         b.write(0);
-                    });
+                    }
                     progress.add(chunk.len() as u64);
                     if progress.stop_requested() {
                         return None;
@@ -223,9 +228,9 @@ impl MemoryThroughputBench {
             }
             MemoryInitializationType::Ones => {
                 for chunk in memory.chunks_exact_mut(chunk_size) {
-                    chunk.iter_mut().for_each(|b| {
+                    for b in chunk.iter_mut() {
                         b.write(u8::MAX);
-                    });
+                    }
                     progress.add(chunk.len() as u64);
                     if progress.stop_requested() {
                         return None;
@@ -235,20 +240,20 @@ impl MemoryThroughputBench {
             MemoryInitializationType::Random => {
                 let mut rng = rand::rngs::SmallRng::from_os_rng();
                 for chunk in memory.chunks_exact_mut(chunk_size) {
-                    chunk.chunks_mut(8).for_each(|c| {
+                    for c in chunk.chunks_mut(8) {
                         let bytes = rng.next_u64().to_ne_bytes();
                         unsafe {
                             c.as_mut_ptr()
                                 .copy_from_nonoverlapping(bytes.as_ptr().cast(), c.len());
                         }
-                    });
+                    }
                     progress.add(chunk.len() as u64);
                     if progress.stop_requested() {
                         return None;
                     }
                 }
             }
-        };
+        }
         // SAFETY: At this point the memory must have been initialized
         let mut memory: OwnedPtr<[u8]> = unsafe { core::mem::transmute(memory) };
         let mut total_runtime = Duration::ZERO;

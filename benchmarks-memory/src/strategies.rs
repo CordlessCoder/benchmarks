@@ -2,7 +2,7 @@ use benchmarks_core::SelectableEnum;
 
 use super::strategy_internals::*;
 use std::hint::black_box;
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum OperationStrategy {
     #[default]
     Bytewise,
@@ -65,6 +65,7 @@ impl SelectableEnum for OperationStrategy {
 }
 
 impl OperationStrategy {
+    #[must_use]
     pub const fn read_fn(&self) -> fn(&mut [u8]) {
         use OperationStrategy::*;
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -103,6 +104,7 @@ impl OperationStrategy {
             },
         }
     }
+    #[must_use]
     pub const fn write_fn(&self) -> fn(&mut [u8]) {
         use OperationStrategy::*;
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -142,6 +144,7 @@ impl OperationStrategy {
             },
         }
     }
+    #[must_use]
     pub fn copy_nonoverlapping_fn(&self) -> unsafe fn(*const u8, *mut u8, usize) {
         use OperationStrategy::*;
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
