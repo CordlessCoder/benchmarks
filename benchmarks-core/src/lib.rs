@@ -146,7 +146,7 @@ pub fn selectable_enum<E: SelectableEnum>(
     id: impl Hash,
     selected: &mut E,
     set_options: impl FnOnce(ComboBox) -> ComboBox,
-) {
+) -> egui::InnerResponse<std::option::Option<()>> {
     set_options(egui::ComboBox::from_id_salt(id))
         .selected_text(selected.as_str())
         .show_ui(ui, |ui| {
@@ -155,5 +155,5 @@ pub fn selectable_enum<E: SelectableEnum>(
                     ui.selectable_value(selected, value.clone(), value.as_str());
                 });
             }
-        });
+        })
 }

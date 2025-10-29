@@ -43,29 +43,36 @@ impl MemoryThroughputPanel {
             let height = ui.text_style_height(&egui::TextStyle::Body);
             let valign = egui::Align::Max;
             let value_size = [height * 5.5, height * 1.2];
-            ui.with_layout(egui::Layout::right_to_left(valign), |ui| {
-                ui.label("Thread(s)")
-            });
+            let label_id = ui
+                .with_layout(egui::Layout::right_to_left(valign), |ui| {
+                    ui.label("Thread(s)")
+                })
+                .inner
+                .id;
             ui.add_sized(
                 value_size,
                 egui::DragValue::new(&mut self.benchmark_config.threads)
                     .speed(1)
                     .range(1..=1024),
-            );
+            )
+            .labelled_by(label_id);
             ui.end_row();
-            ui.with_layout(egui::Layout::right_to_left(valign), |ui| {
-                ui.label("Passes");
-            });
+            let label_id = ui
+                .with_layout(egui::Layout::right_to_left(valign), |ui| ui.label("Passes"))
+                .inner
+                .id;
             ui.add_sized(
                 value_size,
                 egui::DragValue::new(&mut self.benchmark_config.passes)
                     .speed(1)
                     .range(1..=1024),
-            );
+            )
+            .labelled_by(label_id);
             ui.end_row();
-            ui.with_layout(egui::Layout::right_to_left(valign), |ui| {
-                ui.label("Memory");
-            });
+            let label_id = ui
+                .with_layout(egui::Layout::right_to_left(valign), |ui| ui.label("Memory"))
+                .inner
+                .id;
             ui.add_sized(
                 value_size,
                 egui::DragValue::new(&mut self.benchmark_config.memory_size)
@@ -92,37 +99,53 @@ impl MemoryThroughputPanel {
                         };
                         Some(number.parse::<f64>().ok()? * multiplier)
                     }),
-            );
+            )
+            .labelled_by(label_id);
             ui.end_row();
-            ui.with_layout(egui::Layout::right_to_left(valign), |ui| {
-                ui.label("Operation");
-            });
+            let label_id = ui
+                .with_layout(egui::Layout::right_to_left(valign), |ui| {
+                    ui.label("Operation")
+                })
+                .inner
+                .id;
             selectable_enum(
                 ui,
                 "memory_benchmark_option_operation",
                 &mut self.benchmark_config.operation,
                 |ui| ui.width(value_size[0]),
-            );
+            )
+            .response
+            .labelled_by(label_id);
             ui.end_row();
-            ui.with_layout(egui::Layout::right_to_left(valign), |ui| {
-                ui.label("Strategy");
-            });
+            let label_id = ui
+                .with_layout(egui::Layout::right_to_left(valign), |ui| {
+                    ui.label("Strategy")
+                })
+                .inner
+                .id;
             selectable_enum(
                 ui,
                 "memory_benchmark_option_strategy",
                 &mut self.benchmark_config.strategy,
                 |ui| ui.width(value_size[0]),
-            );
+            )
+            .response
+            .labelled_by(label_id);
             ui.end_row();
-            ui.with_layout(egui::Layout::right_to_left(valign), |ui| {
-                ui.label("Fill with");
-            });
+            let label_id = ui
+                .with_layout(egui::Layout::right_to_left(valign), |ui| {
+                    ui.label("Fill with")
+                })
+                .inner
+                .id;
             selectable_enum(
                 ui,
                 "memory_benchmark_option_init_type",
                 &mut self.benchmark_config.init_type,
                 |ui| ui.width(value_size[0]),
-            );
+            )
+            .response
+            .labelled_by(label_id);
             ui.end_row();
         });
     }
@@ -157,7 +180,7 @@ impl MemoryThroughputPanel {
         });
     }
     fn draw_start_button(&mut self, ui: &mut egui::Ui) {
-        let start_benchmark = ui.add_enabled(
+        let start_benchmark = ui.add_visible(
             self.running_benchmark.is_none(),
             egui::Button::new("Start benchmark"),
         );
@@ -166,7 +189,7 @@ impl MemoryThroughputPanel {
         }
         if self.running_benchmark.is_some() {
             // Draw the Cancel button over top of the Start benchmark button, this is fine as
-            // this will only happen if the start button was disabled anyway.
+            // this will only happen if the start button was invisible anyway.
             let cancel_benchmark = ui.put(start_benchmark.rect, egui::Button::new("Cancel"));
             if cancel_benchmark.clicked() {
                 self.running_benchmark
