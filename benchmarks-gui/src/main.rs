@@ -5,9 +5,24 @@ use eframe::egui;
 mod background_compute;
 mod information;
 mod memory;
+use tracing_subscriber::{
+    EnvFilter,
+    fmt::{self, format::FmtSpan},
+    layer::SubscriberExt,
+    util::SubscriberInitExt,
+};
 
 fn main() -> eframe::Result {
-    // env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+    tracing_subscriber::registry()
+        .with(
+            fmt::layer()
+                .with_span_events(FmtSpan::ENTER | FmtSpan::CLOSE)
+                .with_timer(tracing_subscriber::fmt::time::uptime())
+                .pretty(),
+        )
+        .with(EnvFilter::from_default_env())
+        .init();
+
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default(),
         ..Default::default()

@@ -466,6 +466,8 @@ dependencies = [
  "rand",
  "seq-macro",
  "sizef",
+ "tracing",
+ "tracing-subscriber",
  "winit",
 ]
 
