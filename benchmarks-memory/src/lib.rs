@@ -1,10 +1,8 @@
-#![allow(unused)]
 use nix::unistd::SysconfVar;
-use rand::{Rng, RngCore, SeedableRng, rng};
+use rand::{RngCore, SeedableRng};
 use std::{
     alloc::Layout,
     fmt::Display,
-    hint::black_box,
     mem::MaybeUninit,
     ops::{Deref, DerefMut},
     ptr::NonNull,
@@ -13,7 +11,7 @@ use std::{
 };
 mod strategies;
 mod strategy_internals;
-use crate::{ProgressTracker, SelectableEnum};
+use benchmarks_core::{ProgressTracker, SelectableEnum};
 pub use strategies::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -172,14 +170,10 @@ impl MemoryThroughputBench {
         Arc::clone(&self.progress)
     }
     pub fn is_done(&self) -> bool {
-        self.progress.stop_requested() || *self.progress.state.lock().unwrap() == State::Done
+        self.progress.stop_requested() || self.progress.load_state() == State::Done
     }
     pub fn wait_for_results(self) -> Vec<TestResult> {
-        let Self {
-            config,
-            threads,
-            progress,
-        } = self;
+        let Self { threads, .. } = self;
         let mut results = Vec::new();
         for thread in threads {
             let Some(sample) = thread.join().unwrap() else {
@@ -212,45 +206,43 @@ impl MemoryThroughputBench {
         if progress.stop_requested() {
             return None;
         }
-        unsafe {
-            match config.init_type {
-                // The data was zeroed on initialization
-                MemoryInitializationType::Zeros => {
-                    for chunk in memory.chunks_exact_mut(chunk_size) {
-                        chunk.iter_mut().for_each(|b| {
-                            b.write(0);
-                        });
-                        progress.add(chunk.len() as u64);
-                        if progress.stop_requested() {
-                            return None;
-                        }
+        match config.init_type {
+            // The data was zeroed on initialization
+            MemoryInitializationType::Zeros => {
+                for chunk in memory.chunks_exact_mut(chunk_size) {
+                    chunk.iter_mut().for_each(|b| {
+                        b.write(0);
+                    });
+                    progress.add(chunk.len() as u64);
+                    if progress.stop_requested() {
+                        return None;
                     }
                 }
-                MemoryInitializationType::Ones => {
-                    for chunk in memory.chunks_exact_mut(chunk_size) {
-                        chunk.iter_mut().for_each(|b| {
-                            b.write(u8::MAX);
-                        });
-                        progress.add(chunk.len() as u64);
-                        if progress.stop_requested() {
-                            return None;
-                        }
+            }
+            MemoryInitializationType::Ones => {
+                for chunk in memory.chunks_exact_mut(chunk_size) {
+                    chunk.iter_mut().for_each(|b| {
+                        b.write(u8::MAX);
+                    });
+                    progress.add(chunk.len() as u64);
+                    if progress.stop_requested() {
+                        return None;
                     }
                 }
-                MemoryInitializationType::Random => {
-                    let mut rng = rand::rngs::SmallRng::from_os_rng();
-                    for chunk in memory.chunks_exact_mut(chunk_size) {
-                        chunk.chunks_mut(8).for_each(|c| {
-                            let bytes = rng.next_u64().to_ne_bytes();
-                            unsafe {
-                                c.as_mut_ptr()
-                                    .copy_from_nonoverlapping(bytes.as_ptr().cast(), c.len());
-                            }
-                        });
-                        progress.add(chunk.len() as u64);
-                        if progress.stop_requested() {
-                            return None;
+            }
+            MemoryInitializationType::Random => {
+                let mut rng = rand::rngs::SmallRng::from_os_rng();
+                for chunk in memory.chunks_exact_mut(chunk_size) {
+                    chunk.chunks_mut(8).for_each(|c| {
+                        let bytes = rng.next_u64().to_ne_bytes();
+                        unsafe {
+                            c.as_mut_ptr()
+                                .copy_from_nonoverlapping(bytes.as_ptr().cast(), c.len());
                         }
+                    });
+                    progress.add(chunk.len() as u64);
+                    if progress.stop_requested() {
+                        return None;
                     }
                 }
             }

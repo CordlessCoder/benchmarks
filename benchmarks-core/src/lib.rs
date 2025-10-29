@@ -1,20 +1,13 @@
-pub mod impls;
 use std::{
     fmt::Display,
+    hash::Hash,
     sync::{
         Condvar, Mutex,
         atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
     },
 };
 
-pub trait SelectableEnum: Sized + Clone + 'static + PartialEq {
-    fn all_values() -> &'static [Self];
-    fn is_enabled(&self) -> bool {
-        true
-    }
-    fn as_str(&self) -> &'static str;
-}
-
+use egui::ComboBox;
 /// A lock-free, atomic progress bar
 /// Also used for synchronizing multiple workers to the same stages.
 #[derive(Debug)]
@@ -101,10 +94,13 @@ impl<State: PartialEq + Display + Clone> ProgressTracker<State> {
         self.set_counter(0);
         *self.state.lock().unwrap() = state;
     }
+    pub fn load_state(&self) -> State {
+        self.state.lock().unwrap().clone()
+    }
     pub fn load(&self) -> BenchmarkProgressSnapshop<State> {
         let total = self.total.load(Ordering::Acquire);
         let counter = self.counter.load(Ordering::Relaxed);
-        let state = self.state.lock().unwrap().clone();
+        let state = self.load_state();
         let threads_waiting_to_transition =
             self.threads_waiting_to_transition.load(Ordering::Relaxed);
         let was_cancelled = self.stop_requested();
@@ -128,4 +124,30 @@ impl<State: Clone + Display + PartialEq> BenchmarkProgressSnapshop<State> {
     pub fn as_f32(&self) -> f32 {
         self.counter as f32 / self.total as f32
     }
+}
+
+pub trait SelectableEnum: Sized + Clone + 'static + PartialEq {
+    fn all_values() -> &'static [Self];
+    fn is_enabled(&self) -> bool {
+        true
+    }
+    fn as_str(&self) -> &'static str;
+}
+
+pub fn selectable_enum<E: SelectableEnum>(
+    ui: &mut egui::Ui,
+    id: impl Hash,
+    selected: &mut E,
+    set_options: impl FnOnce(ComboBox) -> ComboBox,
+) {
+    set_options(egui::ComboBox::from_id_salt(id))
+        .selected_text(selected.as_str())
+        .show_ui(ui, |ui| {
+            for value in E::all_values() {
+                if !value.is_enabled() {
+                    continue;
+                }
+                ui.selectable_value(selected, value.clone(), value.as_str());
+            }
+        });
 }
