@@ -1,8 +1,8 @@
 // hide console window on Windows in release
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
 use crate::{information::SystemInformationPanel, memory::MemoryThroughputPanel};
 use eframe::egui;
+mod background_compute;
 mod information;
 mod memory;
 
@@ -65,6 +65,7 @@ impl eframe::App for MyApp {
         });
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
+                ui.take_available_space();
                 let Some(selected) = self
                     .selected_benchmark_idx
                     .and_then(|idx| self.benchmarks.get_mut(idx))

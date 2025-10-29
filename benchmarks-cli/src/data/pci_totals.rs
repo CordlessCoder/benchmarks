@@ -1,8 +1,8 @@
-use std::sync::{LazyLock, Mutex};
-use benchmarks_sysinfo::gpu::PCIData;
-use owo_colors::Style;
-use tracing::warn;
 use crate::data::{DataProvider, DataRow};
+use benchmarks_sysinfo::pci::PCIData;
+use owo_colors::Style;
+use std::sync::{LazyLock, Mutex};
+use tracing::warn;
 
 pub static PCI_DEVICE_CACHE: LazyLock<Option<Mutex<PCIData>>> = LazyLock::new(|| {
     let data = PCIData::fetch()

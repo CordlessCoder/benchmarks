@@ -13,3 +13,4 @@ rand.workspace = true
 seq-macro.workspace = true
 sizef.workspace = true
 benchmarks-memory = { version = "0.1.0", path = "../benchmarks-memory" }
+benchmarks-sysinfo = { version = "0.1.0", path = "../benchmarks-sysinfo" }

@@ -1,6 +1,4 @@
-use crate::{
-    data::{DataProvider, DataRow},
-};
+use crate::data::{DataProvider, DataRow};
 use benchmarks_sysinfo::swap::{Swap, SwapData};
 use owo_colors::{AnsiColors, Style};
 use sizef::IntoSize;

@@ -1,6 +1,4 @@
-use crate::{
-    data::{DataProvider, DataRow},
-};
+use crate::data::{DataProvider, DataRow};
 use benchmarks_sysinfo::cpu::{CPU, CpuData};
 use owo_colors::Style;
 
@@ -21,6 +19,7 @@ impl DataProvider for CpuDataProvider {
                     max_freq_khz,
                     cores,
                     threads,
+                    features: _,
                 } = cpu;
                 let mut short_name = String::new();
                 for word in name

@@ -151,10 +151,9 @@ pub fn selectable_enum<E: SelectableEnum>(
         .selected_text(selected.as_str())
         .show_ui(ui, |ui| {
             for value in E::all_values() {
-                if !value.is_enabled() {
-                    continue;
-                }
-                ui.selectable_value(selected, value.clone(), value.as_str());
+                ui.add_enabled_ui(value.is_enabled(), |ui| {
+                    ui.selectable_value(selected, value.clone(), value.as_str());
+                });
             }
         });
 }

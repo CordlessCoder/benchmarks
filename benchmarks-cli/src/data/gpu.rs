@@ -1,6 +1,4 @@
-use crate::{
-    data::{DataProvider, DataRow, pci_totals::PCI_DEVICE_CACHE},
-};
+use crate::data::{DataProvider, DataRow, pci_totals::PCI_DEVICE_CACHE};
 use benchmarks_sysinfo::util::PrettyDevice;
 use owo_colors::Style;
 
