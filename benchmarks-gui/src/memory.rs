@@ -237,7 +237,7 @@ impl Benchmark for MemoryThroughputPanel {
         "Memory Throughput"
     }
     fn ui(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             self.draw_options(ui);
             ui.separator();
             ui.vertical(|ui| {
@@ -245,7 +245,7 @@ impl Benchmark for MemoryThroughputPanel {
             })
         });
         ui.separator();
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             self.draw_start_button(ui);
             self.update_progress(ui);
             self.draw_progress_bar(ui);

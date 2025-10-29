@@ -44,7 +44,7 @@ pub trait Benchmark {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         egui::TopBottomPanel::bottom("Render stats").show(ctx, |ui| {
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.label(format!(
                     "Render time: {:.2}ms",
                     frame.info().cpu_usage.unwrap_or_default() * 1000.0
