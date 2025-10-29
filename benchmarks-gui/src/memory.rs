@@ -38,9 +38,6 @@ impl Default for MemoryThroughputPanel {
 }
 
 impl MemoryThroughputPanel {
-    pub fn name(&self) -> &'static str {
-        "Memory Throughput"
-    }
     fn draw_options(&mut self, ui: &mut egui::Ui) {
         egui::Grid::new("memory_benchmark_options").show(ui, |ui| {
             let height = ui.text_style_height(&egui::TextStyle::Body);
@@ -236,6 +233,9 @@ impl MemoryThroughputPanel {
 }
 
 impl Benchmark for MemoryThroughputPanel {
+    fn name(&self) -> &'static str {
+        "Memory Throughput"
+    }
     fn ui(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             self.draw_options(ui);

@@ -1,0 +1,18 @@
+[package]
+name = "benchmarks-cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+benchmarks-sysinfo = { version = "0.1.0", path = "../benchmarks-sysinfo" }
+clap = { version = "4.5.50", default-features = false, features = [
+  "derive",
+  "help",
+  "std",
+  "usage",
+  "wrap_help",
+] }
+owo-colors = { version = "4.2.3", features = ["supports-colors"] }
+sizef = "^0.2"
+tracing.workspace = true
+tracing-subscriber.workspace = true

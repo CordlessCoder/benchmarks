@@ -1,8 +1,9 @@
 // hide console window on Windows in release
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use crate::memory::MemoryThroughputPanel;
+use crate::{information::SystemInformationPanel, memory::MemoryThroughputPanel};
 use eframe::egui;
+mod information;
 mod memory;
 
 fn main() -> eframe::Result {
@@ -19,19 +20,25 @@ fn main() -> eframe::Result {
 }
 
 struct MyApp {
-    panel: MemoryThroughputPanel,
+    benchmarks: Vec<Box<dyn Benchmark>>,
+    selected_benchmark_idx: Option<usize>,
 }
 
 impl MyApp {
     fn new() -> Self {
         MyApp {
-            panel: MemoryThroughputPanel::default(),
+            benchmarks: vec![
+                Box::new(SystemInformationPanel::default()),
+                Box::new(MemoryThroughputPanel::default()),
+            ],
+            selected_benchmark_idx: Some(0),
         }
     }
 }
 
 pub trait Benchmark {
     fn ui(&mut self, ui: &mut egui::Ui);
+    fn name(&self) -> &'static str;
 }
 
 impl eframe::App for MyApp {
@@ -47,11 +54,24 @@ impl eframe::App for MyApp {
                 })
             })
         });
+        egui::SidePanel::left("Benchmark selector").show(ctx, |ui| {
+            for (idx, benchmark) in self.benchmarks.iter().enumerate() {
+                ui.selectable_value(
+                    &mut self.selected_benchmark_idx,
+                    Some(idx),
+                    benchmark.name(),
+                );
+            }
+        });
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
-                ui.heading(self.panel.name());
-                ui.separator();
-                self.panel.ui(ui);
+                let Some(selected) = self
+                    .selected_benchmark_idx
+                    .and_then(|idx| self.benchmarks.get_mut(idx))
+                else {
+                    return;
+                };
+                selected.ui(ui);
             })
         });
     }
