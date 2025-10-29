@@ -48,8 +48,10 @@ impl eframe::App for MyApp {
             })
         });
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Memory Throughput");
-            self.panel.ui(ui);
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                ui.heading("Memory Throughput");
+                self.panel.ui(ui);
+            })
         });
     }
 }

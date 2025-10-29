@@ -173,10 +173,7 @@ impl MemoryThroughputBench {
         self.progress.stop_requested() || self.progress.load_state() == State::Done
     }
     pub fn wait_for_results(self) -> Vec<TestResult> {
-        let Self {
-            threads,
-            ..
-        } = self;
+        let Self { threads, .. } = self;
         let mut results = Vec::new();
         for thread in threads {
             let Some(sample) = thread.join().unwrap() else {
