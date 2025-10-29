@@ -64,7 +64,6 @@ impl<State: PartialEq + Display + Clone> ProgressTracker<State> {
         if transition_number + 1 == self.threads.load(Ordering::Relaxed) {
             // We have successfully transitioned state.
             *state = new_state;
-            core::mem::drop(state);
             // Reset counters
             self.threads_waiting_to_transition
                 .store(0, Ordering::Release);
