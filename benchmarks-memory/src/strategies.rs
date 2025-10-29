@@ -70,7 +70,7 @@ impl OperationStrategy {
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         use core::arch::x86_64 as x86;
         match self {
-            Bytewise => read_by::<8, usize>,
+            Bytewise => read_by::<16, usize>,
             Int32 => read_by::<16, u32>,
             Int64 => read_by::<16, u64>,
             Int128 => read_by::<16, u128>,
