@@ -42,7 +42,7 @@ impl MemoryThroughputPanel {
         egui::Grid::new("memory_benchmark_options").show(ui, |ui| {
             let height = ui.text_style_height(&egui::TextStyle::Body);
             let valign = egui::Align::Max;
-            let value_size = [height * 5.5, height * 1.2];
+            let value_size = [height * 6.5, height * 1.2];
             let label_id = ui
                 .with_layout(egui::Layout::right_to_left(valign), |ui| {
                     ui.label("Thread(s)")
