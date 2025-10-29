@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 benchmarks-core = { version = "0.1.0", path = "../benchmarks-core" }
-eframe = { version = "0.33.0", features = ["persistence", "wgpu"] }
+eframe = { version = "0.33.0", features = ["persistence"] }
 winit = "0.30.12"
 
 nix.workspace = true
