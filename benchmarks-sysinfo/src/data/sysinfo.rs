@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+#[derive(Debug, Clone)]
 pub struct SysinfoRam {
     pub total: u64,
     pub free: u64,
@@ -7,6 +8,7 @@ pub struct SysinfoRam {
     pub shared: u64,
 }
 
+#[derive(Debug, Clone)]
 pub struct SysInfo {
     pub uptime: Duration,
     pub load_averages: [f32; 3],

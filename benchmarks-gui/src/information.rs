@@ -13,8 +13,8 @@ use benchmarks_sysinfo::{
     user::{PwuIdErr, UserData},
     util::PrettyDevice,
 };
+use eframe::egui;
 use eframe::egui::Sense;
-use eframe::egui::{self, RichText};
 use sizef::IntoSize;
 use std::{convert::Infallible, time::Duration};
 
@@ -106,12 +106,15 @@ impl Benchmark for SystemInformationPanel {
         });
         ui.heading("System");
         self.sysinfo.display(ui, |ui, sysinfo| {
-            ui.label(format!("Uptime: {:?}", sysinfo.uptime));
+            ui.label(format!(
+                "Uptime: {}",
+                humantime::format_duration(sysinfo.uptime)
+            ));
             ui.label(format!("Processes: {}", sysinfo.processes));
-            ui.horizontal_wrapped(|ui| {
-                ui.label("Load averages");
-                // ui.label(RichText::new())
-            });
+            ui.label(format!(
+                "Load averages: {:.2} {:.2} {:.2}",
+                sysinfo.load_averages[0], sysinfo.load_averages[1], sysinfo.load_averages[2],
+            ));
         });
         ui.heading("PCI");
         self.pci.display(ui, |ui, pci| {
@@ -130,8 +133,8 @@ impl Benchmark for SystemInformationPanel {
                         &mut self.pci_devices_expanded,
                         format!("Total PCI Devices: {}", pci.all_devices_named.len()),
                     );
-                    ui.indent("pci_list", |ui| {
-                        if self.pci_devices_expanded {
+                    if self.pci_devices_expanded {
+                        ui.indent("pci_list", |ui| {
                             for (_, device) in pci
                                 .all_devices_named
                                 .iter()
@@ -140,8 +143,8 @@ impl Benchmark for SystemInformationPanel {
                             {
                                 ui.label(PrettyDevice(device).to_string());
                             }
-                        }
-                    });
+                        });
+                    }
                 });
             });
         });

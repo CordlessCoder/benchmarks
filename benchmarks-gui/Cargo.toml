@@ -16,3 +16,4 @@ benchmarks-memory = { version = "0.1.0", path = "../benchmarks-memory" }
 benchmarks-sysinfo = { version = "0.1.0", path = "../benchmarks-sysinfo" }
 tracing.workspace = true
 tracing-subscriber.workspace = true
+humantime.workspace = true

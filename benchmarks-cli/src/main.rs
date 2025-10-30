@@ -11,10 +11,10 @@ use benchmarks_cli::data::{
 };
 
 // TODO: Add
+// [x] Uptime
+// [x] Shell version
 // [ ] Disk provider
 // [ ] USB provider
-// [ ] Uptime
-// [ ] Shell version
 static ALL_PROVIDERS: &[&dyn DataProvider] = &[
     &CpuDataProvider,
     &MemDataProvider,
