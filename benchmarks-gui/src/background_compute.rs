@@ -3,8 +3,11 @@ use eframe::egui;
 use std::{
     any::Any,
     fmt::Display,
+    panic::AssertUnwindSafe,
+    sync::mpsc::{self, SendError},
     time::{Duration, Instant},
 };
+use tracing::error;
 
 pub trait BackgroundComputeProvider {
     type Output;
@@ -36,78 +39,100 @@ pub trait BackgroundComputeProvider {
     }
 }
 
-pub struct RepeatedCompute<T, E, C = fn() -> Result<T, E>> {
+pub struct RepeatedCompute<T> {
     update_period: Duration,
-    compute_with: C,
-    last_compute_start: Instant,
-    being_computed: Option<BackgroundCompute<T, E, C>>,
-    previous_compute: BackgroundCompute<T, E, C>,
+    worker_thread: std::thread::JoinHandle<()>,
+    compute_reciever: mpsc::Receiver<T>,
+    last_value: Option<T>,
 }
 
-impl<T, E, C> RepeatedCompute<T, E, C>
+impl<T> RepeatedCompute<T>
 where
     T: Send + 'static,
-    E: Send + 'static,
-    C: Send + 'static + FnOnce() -> Result<T, E> + Clone,
 {
-    pub fn request_update(&mut self) {
-        if let Some(moved) = self.last_compute_start.checked_sub(self.update_period) {
-            self.last_compute_start = moved;
-        };
-    }
-    pub fn new(compute_with: C, update_period: Duration) -> Self {
+    pub fn new(
+        mut compute_with: impl FnMut() -> T + Send + 'static,
+        update_period: Duration,
+    ) -> Self {
+        let (sender, compute_reciever) = mpsc::sync_channel(1);
+        let worker_thread =
+            std::thread::spawn(move || Self::worker(compute_with, update_period, sender));
         RepeatedCompute {
-            previous_compute: BackgroundCompute::new(compute_with.clone()),
-            being_computed: None,
             update_period,
-            compute_with,
-            last_compute_start: Instant::now(),
+            worker_thread,
+            compute_reciever,
+            last_value: None,
+        }
+    }
+    fn worker(
+        mut compute_with: impl FnMut() -> T + Send + 'static,
+        update_period: Duration,
+        sender: mpsc::SyncSender<T>,
+    ) {
+        let mut last_compute_start;
+        loop {
+            let compute_with = AssertUnwindSafe(&mut compute_with);
+            last_compute_start = Instant::now();
+            let val = match std::panic::catch_unwind(compute_with) {
+                Ok(val) => val,
+                Err(err) => {
+                    error!("Worker thread's compute function panicked: {err:?}");
+                    continue;
+                }
+            };
+            if sender.send(val).is_err() {
+                // Reciever disconnected
+                break;
+            };
+            std::thread::sleep(update_period.saturating_sub(last_compute_start.elapsed()));
         }
     }
 }
 
-impl<T, E, C> BackgroundComputeProvider for RepeatedCompute<T, E, C>
+impl<T, E> BackgroundComputeProvider for RepeatedCompute<Result<T, E>>
 where
     T: Send + 'static,
     E: Send + 'static + Display,
-    C: Send + 'static + FnOnce() -> Result<T, E> + Clone,
 {
     type Output = T;
     type Error = E;
 
-    fn was_attempted(&self) -> bool {
-        self.previous_compute.was_attempted()
+    fn compute(&mut self) -> Option<&mut Self::Output> {
+        self.get_val().and_then(|v| v.as_mut().ok())
     }
-    fn compute(&mut self) -> Option<&mut T> {
-        // Check if we have a new compute result
-        if let Some(mut being_computed) = self.being_computed.take() {
-            being_computed.compute();
-            if being_computed.is_done() {
-                self.previous_compute = being_computed;
-            } else {
-                self.being_computed = Some(being_computed);
-            }
-        }
-        // Check if we need to start a new compute
-        if self.being_computed.is_none() && self.last_compute_start.elapsed() >= self.update_period
-        {
-            let mut new_compute = BackgroundCompute::new(self.compute_with.clone());
-            // Start worker thread
-            new_compute.compute();
-            self.being_computed = Some(new_compute);
-            self.last_compute_start = Instant::now();
-        }
-        self.previous_compute.compute()
+    fn get_error(&self) -> Option<&Self::Error> {
+        self.last_value.as_ref().and_then(|v| v.as_ref().err())
+    }
+    fn was_attempted(&self) -> bool {
+        self.last_value.is_some()
     }
     fn update_period(&self) -> Option<Duration> {
         Some(self.update_period)
     }
-    fn get_error(&self) -> Option<&Self::Error> {
-        self.previous_compute.get_error()
-    }
     fn is_being_computed(&self) -> bool {
-        self.previous_compute.is_being_computed()
+        self.last_value.is_none()
     }
+}
+impl<T> RepeatedCompute<T>
+where
+    T: Send + 'static,
+{
+    fn get_val(&mut self) -> Option<&mut T> {
+        // Check if we have a new compute result
+        if let Ok(val) = self.compute_reciever.try_recv() {
+            self.last_value = Some(val)
+        }
+        self.last_value.as_mut()
+    }
+    // fn update_period(&self) -> Option<Duration> {
+    //     Some(self.update_period)
+    // }
+    // fn get_error(&self) -> Option<&Self::Error> {
+    //     self.previous_compute.get_error()
+    // }
+    // fn is_being_computed(&self) -> bool {
+    //     self.previous_compute.is_being_computed()
+    // }
 }
 
 pub enum BackgroundCompute<T, E, C = fn() -> Result<T, E>> {

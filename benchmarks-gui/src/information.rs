@@ -16,18 +16,18 @@ use benchmarks_sysinfo::{
 use eframe::egui;
 use eframe::egui::Sense;
 use sizef::IntoSize;
-use std::{convert::Infallible, time::Duration};
+use std::{convert::Infallible, io, time::Duration};
 
 pub struct SystemInformationPanel {
     cpu: BackgroundCompute<CpuData, std::io::Error>,
-    cpu_usage: RepeatedCompute<CpuUsageSample, std::io::Error>,
-    memory: RepeatedCompute<MemInfo, std::io::Error>,
-    sysinfo: RepeatedCompute<SysInfo, std::io::Error>,
+    cpu_usage: RepeatedCompute<io::Result<CpuUsageSample>>,
+    memory: RepeatedCompute<io::Result<MemInfo>>,
+    sysinfo: RepeatedCompute<io::Result<SysInfo>>,
     pci: BackgroundCompute<PCIData, PciBackendError>,
     network: BackgroundCompute<NetworkData, Infallible>,
     host: BackgroundCompute<HostData, std::io::Error>,
     user: BackgroundCompute<UserData, PwuIdErr>,
-    swap: RepeatedCompute<SwapData, std::io::Error>,
+    swap: RepeatedCompute<io::Result<SwapData>>,
     pci_devices_expanded: bool,
 }
 
@@ -57,12 +57,6 @@ impl Benchmark for SystemInformationPanel {
         self.cpu.display(ui, |ui, cpu| {
             for cpu in &cpu.cpus {
                 ui.label(&cpu.name);
-                if !self.cpu_usage.was_attempted() {
-                    // Perform first compute
-                    _ = self.cpu_usage.compute();
-                    // Request immediate resample
-                    self.cpu_usage.request_update();
-                }
                 ui.indent("cpu_indent", |ui| {
                     self.cpu_usage.display(ui, |ui, usage| {
                         let Some(diff) = usage.diff_with_last() else {
