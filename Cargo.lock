@@ -486,6 +486,7 @@ name = "benchmarks-sysinfo"
 version = "0.1.0"
 dependencies = [
  "bstr",
+ "libc",
  "pnet",
  "rxfetch",
  "sizef",

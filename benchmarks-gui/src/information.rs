@@ -9,11 +9,12 @@ use benchmarks_sysinfo::{
     network::NetworkData,
     pci::{PCIData, PciBackendError},
     swap::SwapData,
+    sysinfo::SysInfo,
     user::{PwuIdErr, UserData},
     util::PrettyDevice,
 };
-use eframe::egui;
 use eframe::egui::Sense;
+use eframe::egui::{self, RichText};
 use sizef::IntoSize;
 use std::{convert::Infallible, time::Duration};
 
@@ -21,6 +22,7 @@ pub struct SystemInformationPanel {
     cpu: BackgroundCompute<CpuData, std::io::Error>,
     cpu_usage: RepeatedCompute<CpuUsageSample, std::io::Error>,
     memory: RepeatedCompute<MemInfo, std::io::Error>,
+    sysinfo: RepeatedCompute<SysInfo, std::io::Error>,
     pci: BackgroundCompute<PCIData, PciBackendError>,
     network: BackgroundCompute<NetworkData, Infallible>,
     host: BackgroundCompute<HostData, std::io::Error>,
@@ -35,6 +37,7 @@ impl Default for SystemInformationPanel {
             cpu: BackgroundCompute::new(CpuData::fetch),
             cpu_usage: RepeatedCompute::new(CpuUsageSample::fetch, Duration::from_secs_f32(0.2)),
             memory: RepeatedCompute::new(MemInfo::fetch, Duration::from_secs_f32(0.5)),
+            sysinfo: RepeatedCompute::new(SysInfo::fetch, Duration::from_secs_f32(0.5)),
             pci: BackgroundCompute::new(PCIData::fetch),
             network: BackgroundCompute::new(|| Ok(NetworkData::fetch())),
             host: BackgroundCompute::new(HostData::fetch),
@@ -99,6 +102,15 @@ impl Benchmark for SystemInformationPanel {
                     mem.used.into_decimalsize(),
                     mem.used as f64 * 100.0 / mem.total as f64
                 ));
+            });
+        });
+        ui.heading("System");
+        self.sysinfo.display(ui, |ui, sysinfo| {
+            ui.label(format!("Uptime: {:?}", sysinfo.uptime));
+            ui.label(format!("Processes: {}", sysinfo.processes));
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Load averages");
+                // ui.label(RichText::new())
             });
         });
         ui.heading("PCI");
