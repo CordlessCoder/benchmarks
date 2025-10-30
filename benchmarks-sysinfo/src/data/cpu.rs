@@ -1,5 +1,4 @@
-use tracing::warn;
-
+// TODO: Support CPU Usage computation by polling /proc/stat
 use crate::util::for_colon_separated_line;
 use core::fmt::Write;
 use std::{
@@ -8,6 +7,7 @@ use std::{
     io::{self, Read},
     path::PathBuf,
 };
+use tracing::warn;
 
 #[derive(Debug, Default, Clone)]
 struct Core {
