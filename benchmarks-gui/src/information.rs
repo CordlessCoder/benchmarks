@@ -60,14 +60,14 @@ impl Benchmark for SystemInformationPanel {
                     // Request immediate resample
                     self.cpu_usage.request_update();
                 }
-                self.cpu_usage.display(ui, |ui, usage| {
-                    let Some(diff) = usage.diff_with_last() else {
-                        ui.label("Usage: N/A");
-                        return;
-                    };
-                    ui.label(format!("Usage: {:.2}%", diff.as_usage_factor() * 100.));
-                });
                 ui.indent("cpu_indent", |ui| {
+                    self.cpu_usage.display(ui, |ui, usage| {
+                        let Some(diff) = usage.diff_with_last() else {
+                            ui.label("Usage: N/A");
+                            return;
+                        };
+                        ui.label(format!("Usage: {:.2}%", diff.as_usage_factor() * 100.));
+                    });
                     ui.label(format!(
                         "Max frequency: {:.2} GHz",
                         cpu.max_freq_khz as f64 / 1_000_000.0

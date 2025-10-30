@@ -21,7 +21,7 @@ pub struct ProgressTracker<State: Clone> {
     state_transition: Condvar,
 }
 
-/// A single snapshot of the state of a benchmark progress bar - created via [`BenchmarkProgressTracker::load`].
+/// A single snapshot of the state of a benchmark progress bar - created via `.load()`
 pub struct BenchmarkProgressSnapshop<State> {
     pub total: u64,
     pub counter: u64,

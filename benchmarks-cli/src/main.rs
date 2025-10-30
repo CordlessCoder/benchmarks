@@ -15,6 +15,7 @@ use benchmarks_cli::data::{
 // [ ] USB provider
 // [ ] Uptime
 // [ ] Shell version
+// [ ] CPU Utilization
 static ALL_PROVIDERS: &[&dyn DataProvider] = &[
     &CpuDataProvider,
     &MemDataProvider,

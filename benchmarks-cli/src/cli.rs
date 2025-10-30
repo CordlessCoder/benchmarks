@@ -8,7 +8,7 @@ pub struct Args {
     #[clap(long)]
     pub print_identifiers: bool,
     /// Make logging output more verbose. By default, only logs at the ERROR level are printed,
-    /// but this can be changed by setting the RUST_LOG variable(e.g. `RUST_LOG=INFO ./sysinfo`)
+    /// but this can be changed by setting the RUST_LOG variable(e.g. `RUST_LOG=info ./sysinfo`)
     #[clap(short, long, action = clap::ArgAction::Count)]
     pub verbose: u8,
 }

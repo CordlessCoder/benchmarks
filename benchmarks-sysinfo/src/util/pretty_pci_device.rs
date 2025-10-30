@@ -53,7 +53,6 @@ enum FindStage {
     FoundDevice(Device),
 }
 
-// TODO: Add support for simultaneously fetching PCI IDs of multiple vendor-device pairs.
 pub fn query_pci_devices(
     queries: impl IntoIterator<Item = (u16, u16)>,
 ) -> std::io::Result<Vec<Device>> {
