@@ -3,7 +3,7 @@ use crate::{
     background_compute::{BackgroundCompute, BackgroundComputeProvider, RepeatedCompute},
 };
 use benchmarks_sysinfo::{
-    cpu::CpuData,
+    cpu::{CpuData, CpuUsageSample},
     host::HostData,
     memory::MemInfo,
     network::NetworkData,
@@ -19,6 +19,7 @@ use std::{convert::Infallible, time::Duration};
 
 pub struct SystemInformationPanel {
     cpu: BackgroundCompute<CpuData, std::io::Error>,
+    cpu_usage: RepeatedCompute<CpuUsageSample, std::io::Error>,
     memory: RepeatedCompute<MemInfo, std::io::Error>,
     pci: BackgroundCompute<PCIData, PciBackendError>,
     network: BackgroundCompute<NetworkData, Infallible>,
@@ -31,12 +32,13 @@ impl Default for SystemInformationPanel {
     fn default() -> Self {
         SystemInformationPanel {
             cpu: BackgroundCompute::new(CpuData::fetch),
-            memory: RepeatedCompute::new(MemInfo::fetch, Duration::from_secs_f64(0.5)),
+            cpu_usage: RepeatedCompute::new(CpuUsageSample::fetch, Duration::from_secs_f32(0.2)),
+            memory: RepeatedCompute::new(MemInfo::fetch, Duration::from_secs_f32(0.5)),
             pci: BackgroundCompute::new(PCIData::fetch),
             network: BackgroundCompute::new(|| Ok(NetworkData::fetch())),
             host: BackgroundCompute::new(HostData::fetch),
             user: BackgroundCompute::new(UserData::fetch),
-            swap: RepeatedCompute::new(SwapData::fetch, Duration::from_secs_f64(0.5)),
+            swap: RepeatedCompute::new(SwapData::fetch, Duration::from_secs_f32(0.5)),
         }
     }
 }
@@ -50,6 +52,19 @@ impl Benchmark for SystemInformationPanel {
         self.cpu.display(ui, |ui, cpu| {
             for cpu in &cpu.cpus {
                 ui.label(&cpu.name);
+                if !self.cpu_usage.was_attempted() {
+                    // Perform first compute
+                    _ = self.cpu_usage.compute();
+                    // Request immediate resample
+                    self.cpu_usage.request_update();
+                }
+                self.cpu_usage.display(ui, |ui, usage| {
+                    let Some(diff) = usage.diff_with_last() else {
+                        ui.label("Usage: N/A");
+                        return;
+                    };
+                    ui.label(format!("Usage: {:.2}%", diff.as_usage_factor() * 100.));
+                });
                 ui.indent("cpu_indent", |ui| {
                     ui.label(format!(
                         "Max frequency: {:.2} GHz",

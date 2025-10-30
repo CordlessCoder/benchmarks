@@ -10,6 +10,7 @@ pub trait BackgroundComputeProvider {
     type Output;
     type Error: Display;
 
+    fn was_attempted(&self) -> bool;
     fn compute(&mut self) -> Option<&mut Self::Output>;
     fn is_being_computed(&self) -> bool;
     fn get_error(&self) -> Option<&Self::Error>;
@@ -49,6 +50,11 @@ where
     E: Send + 'static,
     C: Send + 'static + FnOnce() -> Result<T, E> + Clone,
 {
+    pub fn request_update(&mut self) {
+        if let Some(moved) = self.last_compute_start.checked_sub(self.update_period) {
+            self.last_compute_start = moved;
+        };
+    }
     pub fn new(compute_with: C, update_period: Duration) -> Self {
         RepeatedCompute {
             previous_compute: BackgroundCompute::new(compute_with.clone()),
@@ -69,6 +75,9 @@ where
     type Output = T;
     type Error = E;
 
+    fn was_attempted(&self) -> bool {
+        self.previous_compute.was_attempted()
+    }
     fn compute(&mut self) -> Option<&mut T> {
         // Check if we have a new compute result
         if let Some(mut being_computed) = self.being_computed.take() {
@@ -86,6 +95,7 @@ where
             // Start worker thread
             new_compute.compute();
             self.being_computed = Some(new_compute);
+            self.last_compute_start = Instant::now();
         }
         self.previous_compute.compute()
     }
@@ -125,6 +135,9 @@ where
     }
     fn is_being_computed(&self) -> bool {
         matches!(self, Self::Computing(_))
+    }
+    fn was_attempted(&self) -> bool {
+        !matches!(self, Self::Computable(_))
     }
     fn compute(&mut self) -> Option<&mut T> {
         use BackgroundCompute::*;

@@ -1,11 +1,14 @@
-// TODO: Support CPU Usage computation by polling /proc/stat
 use crate::util::for_colon_separated_line;
+use bstr::{ByteSlice, io::BufReadExt};
 use core::fmt::Write;
 use std::{
     collections::HashMap,
     fs::File,
-    io::{self, Read},
+    io::{self, BufReader, Read},
     path::PathBuf,
+    str::FromStr,
+    sync::{LazyLock, Mutex},
+    time::{Duration, Instant},
 };
 use tracing::warn;
 
@@ -38,6 +41,160 @@ pub struct CPU {
     pub threads: u16,
     pub features: CPUFeatures,
 }
+
+#[derive(Debug)]
+pub struct CpuUsageSample {
+    pub sampled_at: Instant,
+    pub cores: Vec<CoreUsageSample>,
+}
+#[derive(Debug)]
+pub struct CoreUsageSample {
+    pub user: u64,
+    pub nice: u64,
+    pub system: u64,
+    pub idle: u64,
+    pub iowait: u64,
+    pub irq: u64,
+    pub softirq: u64,
+    pub steal: u64,
+    pub core: Option<u16>,
+}
+
+fn parse_first_number_bytes<T: FromStr>(data: &mut &[u8]) -> Result<Option<T>, T::Err> {
+    *data = data.trim_start();
+    let digits = data.iter().take_while(|b| b.is_ascii_digit()).count();
+    if digits == 0 {
+        return Ok(None);
+    };
+    let (number, rest) = data.split_at(digits);
+    let number = unsafe { core::str::from_utf8_unchecked(number) };
+    *data = rest;
+    Some(number.parse()).transpose()
+}
+
+impl CoreUsageSample {
+    pub fn get_idle_jiffies(&self) -> u64 {
+        self.idle + self.iowait
+    }
+    pub fn get_total_jiffies(&self) -> u64 {
+        self.user
+            + self.nice
+            + self.system
+            + self.idle
+            + self.iowait
+            + self.irq
+            + self.softirq
+            + self.steal
+    }
+    fn parse_line(line: &[u8]) -> std::io::Result<Option<CoreUsageSample>> {
+        let Some(mut cpu_line) = line.strip_prefix(b"cpu") else {
+            return Ok(None);
+        };
+        let core_num = cpu_line
+            .first()
+            .is_some_and(|b| b.is_ascii_digit())
+            .then_some(())
+            .and_then(|_| parse_first_number_bytes::<u16>(&mut cpu_line).transpose())
+            .transpose()
+            .map_err(|e| std::io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let mut data = [0; 8];
+        for entry in &mut data {
+            let value = parse_first_number_bytes::<u64>(&mut cpu_line)
+                .map_err(|e| std::io::Error::new(io::ErrorKind::InvalidData, e))?
+                .ok_or_else(|| {
+                    std::io::Error::new(io::ErrorKind::InvalidData, "Couldn't find expected entry")
+                })?;
+            *entry = value;
+        }
+        let [user, nice, system, idle, iowait, irq, softirq, steal] = data;
+        Ok(Some(CoreUsageSample {
+            user,
+            nice,
+            system,
+            idle,
+            iowait,
+            irq,
+            softirq,
+            steal,
+            core: core_num,
+        }))
+    }
+}
+
+impl CpuUsageSample {
+    pub fn diff_with_last(&self) -> Option<CpuUsageDiff> {
+        let last_sample = LAST_SAMPLE.lock().unwrap();
+        let last_sample = last_sample.as_ref()?;
+        let time_diff = self
+            .sampled_at
+            .saturating_duration_since(last_sample.sampled_at);
+        if time_diff.is_zero() {
+            return None;
+        }
+        // Get global usage
+        let last_global = last_sample.cores.iter().find(|c| c.core.is_none())?;
+        let current_global = self.cores.iter().find(|c| c.core.is_none())?;
+        let total_diff = current_global.get_total_jiffies() - last_global.get_total_jiffies();
+        let idle_diff = current_global.get_idle_jiffies() - last_global.get_idle_jiffies();
+        Some(CpuUsageDiff {
+            total: total_diff,
+            idle: idle_diff,
+            over: time_diff,
+        })
+    }
+    pub fn fetch() -> std::io::Result<CpuUsageSample> {
+        let stat = File::open("/proc/stat")?;
+        let mut stat = BufReader::new(stat);
+        let mut info = CpuUsageSample {
+            sampled_at: Instant::now(),
+            cores: Vec::new(),
+        };
+        stat.for_byte_line(|line| {
+            let sample = CoreUsageSample::parse_line(line)?;
+            if let Some(sample) = sample {
+                info.cores.push(sample);
+            }
+            Ok(true)
+        })?;
+        Ok(info)
+    }
+}
+
+#[derive(Debug)]
+pub struct CpuUsageDiff {
+    pub total: u64,
+    pub idle: u64,
+    pub over: Duration,
+}
+
+impl CpuUsageDiff {
+    pub fn as_usage_factor(&self) -> f32 {
+        1.0 - self.idle as f32 / self.total as f32
+    }
+}
+
+impl Drop for CpuUsageSample {
+    fn drop(&mut self) {
+        if self.cores.is_empty() {
+            return;
+        }
+        match &mut *LAST_SAMPLE.lock().unwrap() {
+            Some(last) if last.sampled_at < self.sampled_at => {
+                core::mem::swap(last, self);
+            }
+            slot @ None => {
+                let empty = CpuUsageSample {
+                    sampled_at: self.sampled_at,
+                    cores: Vec::new(),
+                };
+                *slot = Some(core::mem::replace(self, empty));
+            }
+            Some(_) => (),
+        }
+    }
+}
+
+static LAST_SAMPLE: LazyLock<Mutex<Option<CpuUsageSample>>> = LazyLock::new(|| Mutex::new(None));
 
 #[derive(Debug, Clone)]
 pub struct CpuData {
