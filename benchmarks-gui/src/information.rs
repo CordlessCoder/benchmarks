@@ -1,4 +1,7 @@
-use crate::{Benchmark, background_compute::BackgroundCompute};
+use crate::{
+    Benchmark,
+    background_compute::{BackgroundCompute, BackgroundComputeProvider, RepeatedCompute},
+};
 use benchmarks_sysinfo::{
     cpu::CpuData,
     host::HostData,
@@ -12,28 +15,28 @@ use benchmarks_sysinfo::{
 use eframe::egui;
 use eframe::egui::Sense;
 use sizef::IntoSize;
-use std::convert::Infallible;
+use std::{convert::Infallible, time::Duration};
 
 pub struct SystemInformationPanel {
     cpu: BackgroundCompute<CpuData, std::io::Error>,
-    memory: BackgroundCompute<MemInfo, std::io::Error>,
+    memory: RepeatedCompute<MemInfo, std::io::Error>,
     pci: BackgroundCompute<PCIData, PciBackendError>,
     network: BackgroundCompute<NetworkData, Infallible>,
     host: BackgroundCompute<HostData, std::io::Error>,
     user: BackgroundCompute<UserData, PwuIdErr>,
-    swap: BackgroundCompute<SwapData, std::io::Error>,
+    swap: RepeatedCompute<SwapData, std::io::Error>,
 }
 
 impl Default for SystemInformationPanel {
     fn default() -> Self {
         SystemInformationPanel {
             cpu: BackgroundCompute::new(CpuData::fetch),
-            memory: BackgroundCompute::new(MemInfo::fetch),
+            memory: RepeatedCompute::new(MemInfo::fetch, Duration::from_secs_f64(0.5)),
             pci: BackgroundCompute::new(PCIData::fetch),
             network: BackgroundCompute::new(|| Ok(NetworkData::fetch())),
             host: BackgroundCompute::new(HostData::fetch),
             user: BackgroundCompute::new(UserData::fetch),
-            swap: BackgroundCompute::new(SwapData::fetch),
+            swap: RepeatedCompute::new(SwapData::fetch, Duration::from_secs_f64(0.5)),
         }
     }
 }
