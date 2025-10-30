@@ -64,7 +64,11 @@ impl eframe::App for MyApp {
             ui.horizontal_wrapped(|ui| {
                 egui::widgets::global_theme_preference_switch(ui);
                 ui.separator();
-                ui.toggle_value(&mut self.selector_panel_open, "Benchmark List");
+                let benchmark_list_toggle =
+                    ui.add(egui::Button::new("Benchmark List").selected(self.selector_panel_open));
+                if benchmark_list_toggle.clicked() {
+                    self.selector_panel_open = !self.selector_panel_open;
+                }
                 ui.separator();
                 ui.label(format!(
                     "Render time: {:.2}ms",

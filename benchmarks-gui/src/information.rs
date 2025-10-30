@@ -125,10 +125,16 @@ impl Benchmark for SystemInformationPanel {
                         gpu_count += 1;
                     }
 
-                    ui.toggle_value(
-                        &mut self.pci_devices_expanded,
-                        format!("Total PCI Devices: {}", pci.all_devices_named.len()),
+                    let toggle_pci_list = ui.add(
+                        egui::Button::new(format!(
+                            "Total PCI Devices: {}",
+                            pci.all_devices_named.len()
+                        ))
+                        .selected(self.pci_devices_expanded),
                     );
+                    if toggle_pci_list.clicked() {
+                        self.pci_devices_expanded = !self.pci_devices_expanded;
+                    }
                     let how_expanded = ui.ctx().animate_bool_responsive(
                         ui.id().with("pci_devices_expanded"),
                         self.pci_devices_expanded,
