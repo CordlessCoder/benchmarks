@@ -16,7 +16,7 @@ impl PCIData {
         let device_iter = rxfetch::pci::PciAutoIter::try_init()?;
         let mut all_devices: Vec<PciDevice<_>> = device_iter
             .filter_map(|dev| {
-                dev.inspect_err(|_err| warn!("Failed to enumerate PCI device {_err}"))
+                dev.inspect_err(|err| warn!("Failed to enumerate PCI device {err}"))
                     .ok()
             })
             .collect();
@@ -24,10 +24,10 @@ impl PCIData {
         let queries = all_devices.iter_mut().flat_map(|dev| {
             let query = (
                 dev.vendor()
-                    .inspect_err(|_err| warn!("Failed to get PCI device vendor id {_err}"))
+                    .inspect_err(|err| warn!("Failed to get PCI device vendor id {err}"))
                     .ok()?,
                 dev.device()
-                    .inspect_err(|_err| warn!("Failed to get PCI device id: {_err}"))
+                    .inspect_err(|err| warn!("Failed to get PCI device id: {err}"))
                     .ok()?,
             );
             if dev.is_gpu().unwrap_or(false) {

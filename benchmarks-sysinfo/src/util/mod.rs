@@ -40,7 +40,7 @@ pub fn for_colon_separated_line<S>(
 pub fn parse_first_number(value: &str) -> std::io::Result<(u64, &str)> {
     let len = value.bytes().take_while(|b| b.is_ascii_digit()).count();
     let (value, rest) = value.split_at(len);
-    let number = value.parse().map_err(|_err| {
+    let number = value.parse().map_err(|_| {
         Error::new(
             ErrorKind::InvalidData,
             "Failed to parse number in input value",
