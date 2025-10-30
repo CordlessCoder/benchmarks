@@ -113,7 +113,11 @@ impl Benchmark for SystemInformationPanel {
                     for gpu in pci.gpus() {
                         ui.label(PrettyDevice(gpu).to_string());
                     }
-                    ui.checkbox(&mut self.pci_devices_expanded, "PCI Device List");
+
+                    ui.toggle_value(
+                        &mut self.pci_devices_expanded,
+                        format!("Total PCI Devices: {}", pci.all_devices_named.len()),
+                    );
                     ui.indent("pci_list", |ui| {
                         if self.pci_devices_expanded {
                             for device in &pci.all_devices_named {
@@ -122,8 +126,6 @@ impl Benchmark for SystemInformationPanel {
                         }
                     });
                 });
-
-                ui.label(format!("Total PCI Devices: {}", pci.all_devices.len()));
             });
         });
         ui.heading("Network");
