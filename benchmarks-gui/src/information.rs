@@ -26,6 +26,7 @@ pub struct SystemInformationPanel {
     host: BackgroundCompute<HostData, std::io::Error>,
     user: BackgroundCompute<UserData, PwuIdErr>,
     swap: RepeatedCompute<SwapData, std::io::Error>,
+    pci_devices_expanded: bool,
 }
 
 impl Default for SystemInformationPanel {
@@ -39,6 +40,7 @@ impl Default for SystemInformationPanel {
             host: BackgroundCompute::new(HostData::fetch),
             user: BackgroundCompute::new(UserData::fetch),
             swap: RepeatedCompute::new(SwapData::fetch, Duration::from_secs_f32(0.5)),
+            pci_devices_expanded: false,
         }
     }
 }
@@ -102,12 +104,25 @@ impl Benchmark for SystemInformationPanel {
         ui.heading("PCI");
         self.pci.display(ui, |ui, pci| {
             ui.indent("pci_list", |ui| {
-                ui.heading(if pci.gpus.len() == 1 { "GPU" } else { "GPUs" });
+                ui.heading(if pci.all_devices.len() == 1 {
+                    "GPU"
+                } else {
+                    "GPUs"
+                });
                 ui.vertical(|ui| {
-                    for gpu in &pci.gpus {
+                    for gpu in pci.gpus() {
                         ui.label(PrettyDevice(gpu).to_string());
                     }
+                    ui.checkbox(&mut self.pci_devices_expanded, "PCI Device List");
+                    ui.indent("pci_list", |ui| {
+                        if self.pci_devices_expanded {
+                            for device in &pci.all_devices_named {
+                                ui.label(PrettyDevice(device).to_string());
+                            }
+                        }
+                    });
                 });
+
                 ui.label(format!("Total PCI Devices: {}", pci.all_devices.len()));
             });
         });

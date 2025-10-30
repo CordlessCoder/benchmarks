@@ -1,11 +1,14 @@
-use crate::util::{Device, read_pci_device};
 use rxfetch::pci::PciDevIterBackend;
 pub use rxfetch::pci::{AutoProvider, PciBackendError, PciDevice};
 use tracing::warn;
 
+use crate::util::{Device, query_pci_devices};
+
 pub struct PCIData {
     pub all_devices: Vec<PciDevice<AutoProvider>>,
-    pub gpus: Vec<Device>,
+    pub all_devices_named: Vec<Device>,
+    // These indices of all_devices_named are GPUs
+    pub gpus: Vec<usize>,
 }
 
 impl PCIData {
@@ -17,23 +20,41 @@ impl PCIData {
                     .ok()
             })
             .collect();
-        let gpus = all_devices
-            .iter_mut()
-            .filter_map(|dev| dev.is_gpu().unwrap_or(false).then_some(dev))
-            .filter_map(|dev| {
-                read_pci_device(
-                    dev.vendor()
-                        .inspect_err(|_err| warn!("Failed to get PCI device vendor id {_err}"))
-                        .ok()?,
-                    dev.device()
-                        .inspect_err(|_err| warn!("Failed to get PCI device id: {_err}"))
-                        .ok()?,
-                )
-                .inspect_err(|_err| warn!("Failed to find device in pciid database: {_err}"))
-                .ok()
-                .flatten()
+        let mut gpu_queries = Vec::new();
+        let queries = all_devices.iter_mut().flat_map(|dev| {
+            let query = (
+                dev.vendor()
+                    .inspect_err(|_err| warn!("Failed to get PCI device vendor id {_err}"))
+                    .ok()?,
+                dev.device()
+                    .inspect_err(|_err| warn!("Failed to get PCI device id: {_err}"))
+                    .ok()?,
+            );
+            if dev.is_gpu().unwrap_or(false) {
+                gpu_queries.push(query);
+            }
+            Some(query)
+        });
+        let all_devices_named =
+            query_pci_devices(queries).map_err(rxfetch::pci::PciBackendError::IOError)?;
+        let gpus = gpu_queries
+            .into_iter()
+            .flat_map(|(vendor_id, device_id)| {
+                all_devices_named
+                    .iter()
+                    .position(|dev| dev.vid == vendor_id && dev.did == device_id)
             })
             .collect();
-        Ok(PCIData { gpus, all_devices })
+
+        Ok(PCIData {
+            gpus,
+            all_devices,
+            all_devices_named,
+        })
+    }
+    pub fn gpus(&self) -> impl Iterator<Item = &Device> {
+        self.gpus
+            .iter()
+            .flat_map(|&idx| self.all_devices_named.get(idx))
     }
 }

@@ -13,11 +13,9 @@ impl DataProvider for GpuDataProvider {
         let Some(data) = &*PCI_DEVICE_CACHE else {
             return Err("Fetching PCI data failed".to_string());
         };
+        let data = data.lock().unwrap();
         let mut rows: Vec<DataRow> = data
-            .lock()
-            .unwrap()
-            .gpus
-            .iter()
+            .gpus()
             .map(|gpu| DataRow::new("GPU").with_value(PrettyDevice(gpu).to_string(), Style::new()))
             .collect();
         if rows.len() > 1 {

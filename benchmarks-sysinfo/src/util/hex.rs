@@ -8,6 +8,7 @@ pub(crate) const fn unhex(b: u8) -> u8 {
             arr[b as usize] = match b {
                 b'0'..=b'9' => b.wrapping_sub(b'0'),
                 b'a'..=b'f' => b.wrapping_sub(b'a').wrapping_add(10),
+                b'A'..=b'F' => b.wrapping_sub(b'A').wrapping_add(10),
                 _ => 0,
             };
             i += 1;
