@@ -16,7 +16,7 @@ use benchmarks_sysinfo::{
 use eframe::egui;
 use eframe::egui::Sense;
 use sizef::IntoSize;
-use std::{convert::Infallible, io, time::Duration};
+use std::{io, time::Duration};
 
 pub struct SystemInformationPanel {
     cpu: BackgroundCompute<CpuData, std::io::Error>,
@@ -24,7 +24,7 @@ pub struct SystemInformationPanel {
     memory: RepeatedCompute<io::Result<MemInfo>>,
     sysinfo: RepeatedCompute<io::Result<SysInfo>>,
     pci: BackgroundCompute<PCIData, PciBackendError>,
-    network: BackgroundCompute<NetworkData, Infallible>,
+    network: RepeatedCompute<io::Result<NetworkData>>,
     host: BackgroundCompute<HostData, std::io::Error>,
     user: BackgroundCompute<UserData, PwuIdErr>,
     swap: RepeatedCompute<io::Result<SwapData>>,
@@ -39,7 +39,10 @@ impl Default for SystemInformationPanel {
             memory: RepeatedCompute::new(MemInfo::fetch, Duration::from_secs_f32(0.5)),
             sysinfo: RepeatedCompute::new(SysInfo::fetch, Duration::from_secs_f32(0.5)),
             pci: BackgroundCompute::new(PCIData::fetch),
-            network: BackgroundCompute::new(|| Ok(NetworkData::fetch())),
+            network: RepeatedCompute::new(
+                || Ok(NetworkData::fetch()),
+                Duration::from_secs_f32(5.0),
+            ),
             host: BackgroundCompute::new(HostData::fetch),
             user: BackgroundCompute::new(UserData::fetch),
             swap: RepeatedCompute::new(SwapData::fetch, Duration::from_secs_f32(0.5)),
@@ -142,7 +145,7 @@ impl Benchmark for SystemInformationPanel {
                     let show_devices = ((pci.all_devices_named.len() - gpu_count) as f32
                         * how_expanded)
                         .ceil() as usize;
-                    if how_expanded == 0.0 {
+                    if show_devices == 0 {
                         return;
                     }
                     ui.indent("pci_list", |ui| {
