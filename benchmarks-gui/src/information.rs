@@ -119,24 +119,35 @@ impl Benchmark for SystemInformationPanel {
                     "GPUs"
                 });
                 ui.vertical(|ui| {
+                    let mut gpu_count: usize = 0;
                     for gpu in pci.gpus() {
                         ui.label(PrettyDevice(gpu).to_string());
+                        gpu_count += 1;
                     }
 
                     ui.toggle_value(
                         &mut self.pci_devices_expanded,
                         format!("Total PCI Devices: {}", pci.all_devices_named.len()),
                     );
-                    if self.pci_devices_expanded {
-                        ui.indent("pci_list", |ui| {
-                            pci.all_devices_named
-                                .iter()
-                                .filter(|dev| !dev.is_gpu)
-                                .for_each(|device| {
-                                    ui.label(PrettyDevice(device).to_string());
-                                });
-                        });
+                    let how_expanded = ui.ctx().animate_bool_responsive(
+                        ui.id().with("pci_devices_expanded"),
+                        self.pci_devices_expanded,
+                    );
+                    let show_devices = ((pci.all_devices_named.len() - gpu_count) as f32
+                        * how_expanded)
+                        .ceil() as usize;
+                    if how_expanded == 0.0 {
+                        return;
                     }
+                    ui.indent("pci_list", |ui| {
+                        pci.all_devices_named
+                            .iter()
+                            .filter(|dev| !dev.is_gpu)
+                            .take(show_devices)
+                            .for_each(|device| {
+                                ui.label(PrettyDevice(device).to_string());
+                            });
+                    });
                 });
             });
         });
