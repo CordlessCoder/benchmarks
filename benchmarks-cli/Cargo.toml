@@ -12,6 +12,7 @@ clap = { version = "4.5.50", default-features = false, features = [
   "usage",
   "wrap_help",
 ] }
+humantime.workspace = true
 owo-colors = { version = "4.2.3", features = ["supports-colors"] }
 sizef = "^0.2"
 tracing.workspace = true

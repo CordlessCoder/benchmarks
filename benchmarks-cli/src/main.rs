@@ -7,12 +7,11 @@ use tracing_subscriber::{EnvFilter, fmt, fmt::format::FmtSpan, prelude::*};
 use benchmarks_cli::data::{
     DataProvider, DataRow, StyledText, cpu::CpuDataProvider, gpu::GpuDataProvider,
     host::HostInfoProvider, ip::NetworkProvider, mem::MemDataProvider,
-    pci_totals::PciTotalProvider, swap::SwapDataProvider, user::UserInfoProvider,
+    pci_totals::PciTotalProvider, swap::SwapDataProvider, uptime::UptimeProvider,
+    user::UserInfoProvider,
 };
 
 // TODO: Add
-// [x] Uptime
-// [x] Shell version
 // [ ] Disk provider
 // [ ] USB provider
 static ALL_PROVIDERS: &[&dyn DataProvider] = &[
@@ -23,6 +22,7 @@ static ALL_PROVIDERS: &[&dyn DataProvider] = &[
     &NetworkProvider,
     &SwapDataProvider,
     &HostInfoProvider,
+    &UptimeProvider,
     &UserInfoProvider,
 ];
 
