@@ -124,15 +124,6 @@ where
         }
         self.last_value.as_mut()
     }
-    // fn update_period(&self) -> Option<Duration> {
-    //     Some(self.update_period)
-    // }
-    // fn get_error(&self) -> Option<&Self::Error> {
-    //     self.previous_compute.get_error()
-    // }
-    // fn is_being_computed(&self) -> bool {
-    //     self.previous_compute.is_being_computed()
-    // }
 }
 
 pub enum BackgroundCompute<T, E, C = fn() -> Result<T, E>> {

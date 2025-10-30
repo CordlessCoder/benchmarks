@@ -14,6 +14,7 @@ pub struct Device {
     pub name: String,
     pub vendor: String,
     pub subsystems: Vec<Subsystem>,
+    pub is_gpu: bool,
 }
 #[derive(Default, Debug, Clone)]
 pub struct Subsystem {
@@ -54,11 +55,14 @@ enum FindStage {
 }
 
 pub fn query_pci_devices(
-    queries: impl IntoIterator<Item = (u16, u16)>,
+    queries: impl IntoIterator<Item = (u16, u16, bool)>,
 ) -> std::io::Result<Vec<Device>> {
-    let mut vendor_to_devices: HashMap<u16, Vec<u16>> = HashMap::new();
-    for (vid, did) in queries {
-        vendor_to_devices.entry(vid).or_default().push(did);
+    let mut vendor_to_devices: HashMap<u16, Vec<(u16, bool)>> = HashMap::new();
+    for (vid, did, is_gpu) in queries {
+        vendor_to_devices
+            .entry(vid)
+            .or_default()
+            .push((did, is_gpu));
     }
     let mut found_devices = Vec::new();
     let pci_db = open_pci_ids()
@@ -122,13 +126,15 @@ pub fn query_pci_devices(
                 else {
                     return Ok(true);
                 };
-                if !vendor_to_devices
+                let Some((_, is_gpu)) = vendor_to_devices
                     .get(vendor_id)
                     .unwrap()
-                    .contains(&device_id)
-                {
+                    .iter()
+                    .copied()
+                    .find(|&(did, _)| did == device_id)
+                else {
                     return Ok(true);
-                }
+                };
                 let name = line[4..].trim_ascii();
                 let name = match core::str::from_utf8(name) {
                     Ok(name) => name,
@@ -140,6 +146,7 @@ pub fn query_pci_devices(
                     name: name.to_string(),
                     vendor: vendor_name.clone(),
                     subsystems: Vec::new(),
+                    is_gpu,
                 })
             }
             FindStage::FoundDevice(dev) => {
@@ -194,13 +201,15 @@ impl Display for PrettyDevice<'_> {
         let vendor = &card.vendor;
         let vendor = get_pretty_name(vendor);
 
-        let mut name = &card.name;
+        let mut name = &*card.name;
 
         if let Some(sub) = card.subsystems.iter().find(|s| s.name.contains('[')) {
             name = &sub.name;
         }
 
-        let name = get_pretty_name(name);
+        if self.0.is_gpu {
+            name = get_pretty_name(name);
+        }
 
         // Shorten GPU text
         let (name, suffix) = name

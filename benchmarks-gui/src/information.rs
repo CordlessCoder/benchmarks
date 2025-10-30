@@ -129,14 +129,12 @@ impl Benchmark for SystemInformationPanel {
                     );
                     if self.pci_devices_expanded {
                         ui.indent("pci_list", |ui| {
-                            for (_, device) in pci
-                                .all_devices_named
+                            pci.all_devices_named
                                 .iter()
-                                .enumerate()
-                                .filter(|(idx, _)| !pci.gpus.contains(idx))
-                            {
-                                ui.label(PrettyDevice(device).to_string());
-                            }
+                                .filter(|dev| !dev.is_gpu)
+                                .for_each(|device| {
+                                    ui.label(PrettyDevice(device).to_string());
+                                });
                         });
                     }
                 });
