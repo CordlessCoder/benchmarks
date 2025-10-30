@@ -5,3 +5,4 @@ pub mod components;
 pub mod display;
 mod parse;
 pub mod pci;
+pub mod usb;
