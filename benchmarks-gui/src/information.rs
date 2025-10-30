@@ -166,6 +166,9 @@ impl Benchmark for SystemInformationPanel {
                             "Interface {} {}",
                             interface.name, interface.description
                         ));
+                        if interface.ips.is_empty() {
+                            return;
+                        }
                         ui.label(if interface.ips.len() == 1 {
                             "Address"
                         } else {
