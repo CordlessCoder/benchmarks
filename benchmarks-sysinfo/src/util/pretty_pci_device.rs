@@ -59,8 +59,6 @@ pub fn query_pci_devices(
 ) -> std::io::Result<Vec<Device>> {
     let mut vendor_to_devices: HashMap<u16, Vec<u16>> = HashMap::new();
     for (vid, did) in queries {
-        // let hex_vendor = u16_to_hex(vid);
-        // let hex_device = u16_to_hex(did);
         vendor_to_devices.entry(vid).or_default().push(did);
     }
     let mut found_devices = Vec::new();

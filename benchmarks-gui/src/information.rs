@@ -120,7 +120,12 @@ impl Benchmark for SystemInformationPanel {
                     );
                     ui.indent("pci_list", |ui| {
                         if self.pci_devices_expanded {
-                            for device in &pci.all_devices_named {
+                            for (_, device) in pci
+                                .all_devices_named
+                                .iter()
+                                .enumerate()
+                                .filter(|(idx, _)| !pci.gpus.contains(idx))
+                            {
                                 ui.label(PrettyDevice(device).to_string());
                             }
                         }
