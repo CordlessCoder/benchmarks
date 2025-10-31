@@ -44,7 +44,7 @@ impl Default for SystemInformationPanel {
             memory: RepeatedCompute::new(MemInfo::fetch, Duration::from_secs_f32(0.5)),
             sysinfo: RepeatedCompute::new(SysInfo::fetch, Duration::from_secs_f32(0.5)),
             pci: BackgroundCompute::new(PCIData::fetch),
-            usb: RepeatedCompute::new(UsbData::fetch, Duration::from_secs(5)),
+            usb: RepeatedCompute::new(UsbData::fetch, Duration::from_secs(3)),
             network: RepeatedCompute::new(|| Ok(NetworkData::fetch()), Duration::from_secs(5)),
             disks: RepeatedCompute::new(DiskData::fetch, Duration::from_secs(30)),
             host: BackgroundCompute::new(HostData::fetch),
