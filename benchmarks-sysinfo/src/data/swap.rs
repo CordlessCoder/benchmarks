@@ -9,6 +9,7 @@ use std::{
     path::PathBuf,
 };
 
+#[derive(Debug, Clone)]
 pub struct Swap {
     pub name: PathBuf,
     pub size: u64,
@@ -16,6 +17,7 @@ pub struct Swap {
     pub priority: i32,
 }
 
+#[derive(Debug, Clone)]
 pub struct SwapData {
     pub swaps: Vec<Swap>,
 }

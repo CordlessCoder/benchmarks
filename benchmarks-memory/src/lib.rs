@@ -205,7 +205,7 @@ impl MemoryThroughputBench {
                 std::alloc::handle_alloc_error(mem);
             };
             let ptr: *mut [MaybeUninit<u8>] =
-                core::slice::from_raw_parts_mut(ptr.as_ptr().cast(), mem.size());
+                std::ptr::slice_from_raw_parts_mut(ptr.as_ptr().cast(), mem.size());
             OwnedPtr { ptr, layout: mem }
         };
         progress.add(1);

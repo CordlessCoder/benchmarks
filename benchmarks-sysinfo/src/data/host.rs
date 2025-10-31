@@ -1,5 +1,6 @@
 use rxfetch::{components::name::SystemName, display::DisplayBytes};
 
+#[derive(Debug, Clone)]
 pub struct HostData {
     pub hostname: String,
     pub kernel: String,

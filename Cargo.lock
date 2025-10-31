@@ -3033,6 +3033,7 @@ dependencies = [
  "nom",
  "thiserror 2.0.17",
  "tracing",
+ "zerocopy",
 ]
 
 [[package]]

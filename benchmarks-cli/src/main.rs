@@ -8,18 +8,18 @@ use benchmarks_cli::data::{
     DataProvider, DataRow, StyledText, cpu::CpuDataProvider, gpu::GpuDataProvider,
     host::HostInfoProvider, ip::NetworkProvider, mem::MemDataProvider,
     pci_totals::PciTotalProvider, swap::SwapDataProvider, uptime::UptimeProvider,
-    user::UserInfoProvider,
+    usb::UsbDataProvider, user::UserInfoProvider,
 };
 
 // TODO: Add
 // [ ] Disk provider
-// [ ] USB provider
 static ALL_PROVIDERS: &[&dyn DataProvider] = &[
     &CpuDataProvider,
     &MemDataProvider,
     &GpuDataProvider,
     &PciTotalProvider,
     &NetworkProvider,
+    &UsbDataProvider,
     &SwapDataProvider,
     &HostInfoProvider,
     &UptimeProvider,

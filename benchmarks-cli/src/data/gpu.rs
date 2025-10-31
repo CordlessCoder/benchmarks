@@ -1,5 +1,5 @@
 use crate::data::{DataProvider, DataRow, pci_totals::PCI_DEVICE_CACHE};
-use benchmarks_sysinfo::util::PrettyDevice;
+use benchmarks_sysinfo::util::pretty_pci_device::PrettyDevice;
 use owo_colors::Style;
 
 #[derive(Debug)]

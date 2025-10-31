@@ -9,6 +9,7 @@ pub mod mem;
 pub mod pci_totals;
 pub mod swap;
 pub mod uptime;
+pub mod usb;
 pub mod user;
 
 pub struct StyledText {

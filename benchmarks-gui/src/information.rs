@@ -10,8 +10,9 @@ use benchmarks_sysinfo::{
     pci::{PCIData, PciBackendError},
     swap::SwapData,
     sysinfo::SysInfo,
+    usb::UsbData,
     user::{PwuIdErr, UserData},
-    util::PrettyDevice,
+    util::pretty_pci_device::PrettyDevice,
 };
 use eframe::egui;
 use eframe::egui::Sense;
@@ -24,11 +25,13 @@ pub struct SystemInformationPanel {
     memory: RepeatedCompute<io::Result<MemInfo>>,
     sysinfo: RepeatedCompute<io::Result<SysInfo>>,
     pci: BackgroundCompute<PCIData, PciBackendError>,
+    usb: RepeatedCompute<io::Result<UsbData>>,
     network: RepeatedCompute<io::Result<NetworkData>>,
     host: BackgroundCompute<HostData, std::io::Error>,
     user: BackgroundCompute<UserData, PwuIdErr>,
     swap: RepeatedCompute<io::Result<SwapData>>,
     pci_devices_expanded: bool,
+    usb_devices_expanded: bool,
 }
 
 impl Default for SystemInformationPanel {
@@ -39,14 +42,13 @@ impl Default for SystemInformationPanel {
             memory: RepeatedCompute::new(MemInfo::fetch, Duration::from_secs_f32(0.5)),
             sysinfo: RepeatedCompute::new(SysInfo::fetch, Duration::from_secs_f32(0.5)),
             pci: BackgroundCompute::new(PCIData::fetch),
-            network: RepeatedCompute::new(
-                || Ok(NetworkData::fetch()),
-                Duration::from_secs_f32(5.0),
-            ),
+            usb: RepeatedCompute::new(UsbData::fetch, Duration::from_secs(5)),
+            network: RepeatedCompute::new(|| Ok(NetworkData::fetch()), Duration::from_secs(5)),
             host: BackgroundCompute::new(HostData::fetch),
             user: BackgroundCompute::new(UserData::fetch),
             swap: RepeatedCompute::new(SwapData::fetch, Duration::from_secs_f32(0.5)),
             pci_devices_expanded: false,
+            usb_devices_expanded: false,
         }
     }
 }
@@ -148,15 +150,43 @@ impl Benchmark for SystemInformationPanel {
                     if show_devices == 0 {
                         return;
                     }
-                    ui.indent("pci_list", |ui| {
-                        pci.all_devices_named
-                            .iter()
-                            .filter(|dev| !dev.is_gpu)
-                            .take(show_devices)
-                            .for_each(|device| {
-                                ui.label(PrettyDevice(device).to_string());
-                            });
-                    });
+                    pci.all_devices_named
+                        .iter()
+                        .filter(|dev| !dev.is_gpu)
+                        .take(show_devices)
+                        .for_each(|device| {
+                            ui.label(PrettyDevice(device).to_string());
+                        });
+                });
+            });
+        });
+        ui.heading("USB");
+        self.usb.display(ui, |ui, usb| {
+            ui.indent("usb_devices", |ui| {
+                let toggle_usb_list = ui.add(
+                    egui::Button::new(format!("Total USB Devices: {}", usb.device_ids.len()))
+                        .selected(self.usb_devices_expanded),
+                );
+                if toggle_usb_list.clicked() {
+                    self.usb_devices_expanded = !self.usb_devices_expanded;
+                }
+                let how_expanded = ui.ctx().animate_bool_responsive(
+                    ui.id().with("usb_devices_expanded"),
+                    self.usb_devices_expanded,
+                );
+                let show_devices = (usb.device_ids.len() as f32 * how_expanded).ceil() as usize;
+                if show_devices == 0 {
+                    return;
+                }
+                usb.device_ids.iter().take(show_devices).for_each(|device| {
+                    ui.label(format!(
+                        "{}, {}",
+                        device.product.as_deref().unwrap_or("Unknown"),
+                        device
+                            .manufacturer
+                            .as_deref()
+                            .unwrap_or("Unknown Manufacturer"),
+                    ));
                 });
             });
         });

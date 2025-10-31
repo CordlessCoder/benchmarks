@@ -1,5 +1,6 @@
 use pnet::datalink::NetworkInterface;
 
+#[derive(Debug, Clone)]
 pub struct NetworkData {
     pub interfaces: Vec<NetworkInterface>,
 }

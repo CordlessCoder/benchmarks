@@ -1,6 +1,7 @@
-mod pretty_pci_device;
-pub use pretty_pci_device::*;
 pub mod hex;
+pub mod pretty_pci_device;
+pub mod query_pcidb;
+// pub mod query_usbdb;
 
 use bstr::{ByteSlice, io::BufReadExt};
 use std::{

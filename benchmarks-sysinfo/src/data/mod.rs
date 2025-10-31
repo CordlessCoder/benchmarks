@@ -5,4 +5,5 @@ pub mod network;
 pub mod pci;
 pub mod swap;
 pub mod sysinfo;
+pub mod usb;
 pub mod user;

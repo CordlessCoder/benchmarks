@@ -1,12 +1,12 @@
+use crate::util::{pretty_pci_device::NamedPciDevice, query_pcidb::query_pci_devices};
 use rxfetch::pci::PciDevIterBackend;
 pub use rxfetch::pci::{AutoProvider, PciBackendError, PciDevice};
 use tracing::warn;
 
-use crate::util::{Device, query_pci_devices};
-
+#[derive(Debug, Clone)]
 pub struct PCIData {
     pub all_devices: Vec<PciDevice<AutoProvider>>,
-    pub all_devices_named: Vec<Device>,
+    pub all_devices_named: Vec<NamedPciDevice>,
 }
 
 impl PCIData {
@@ -31,21 +31,13 @@ impl PCIData {
         });
         let all_devices_named =
             query_pci_devices(queries).map_err(rxfetch::pci::PciBackendError::IOError)?;
-        // let gpus = gpu_queries
-        //     .into_iter()
-        //     .flat_map(|(vendor_id, device_id)| {
-        //         all_devices_named
-        //             .iter()
-        //             .position(|dev| dev.vid == vendor_id && dev.did == device_id)
-        //     })
-        //     .collect();
 
         Ok(PCIData {
             all_devices,
             all_devices_named,
         })
     }
-    pub fn gpus(&self) -> impl Iterator<Item = &Device> {
+    pub fn gpus(&self) -> impl Iterator<Item = &NamedPciDevice> {
         self.all_devices_named.iter().filter(|dev| dev.is_gpu)
     }
 }

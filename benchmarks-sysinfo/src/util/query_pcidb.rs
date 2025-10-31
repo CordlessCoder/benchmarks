@@ -1,0 +1,163 @@
+use crate::util::{
+    hex::{hex_to_u16, hex_to_u16_ioerr},
+    pretty_pci_device::{NamedPciDevice, Subsystem},
+};
+use bstr::io::BufReadExt;
+use std::{
+    collections::HashMap,
+    fmt::Debug,
+    io::{BufReader, Error, ErrorKind},
+};
+
+fn open_pci_ids() -> Option<std::fs::File> {
+    [
+        "/usr/share/hwdata/pci.ids",
+        "/usr/share/misc/pci.ids",
+        "/usr/share/pci.ids",
+    ]
+    .iter()
+    .find_map(|path| std::fs::File::open(path).ok())
+}
+
+#[derive(Debug)]
+enum FindStage {
+    None,
+    FoundVendor(u16, String),
+    FoundDevice(NamedPciDevice),
+}
+
+pub fn query_pci_devices(
+    queries: impl IntoIterator<Item = (u16, u16, bool)>,
+) -> std::io::Result<Vec<NamedPciDevice>> {
+    let mut vendor_to_devices: HashMap<u16, Vec<(u16, bool)>> = HashMap::new();
+    for (vid, did, is_gpu) in queries {
+        vendor_to_devices
+            .entry(vid)
+            .or_default()
+            .push((did, is_gpu));
+    }
+    let target_device_count = vendor_to_devices.values().flatten().count();
+    let mut found_devices = Vec::new();
+    let pci_db = open_pci_ids()
+        .ok_or_else(|| Error::new(ErrorKind::NotFound, "PCI ID Database not found."))?;
+    let mut pci_db = BufReader::new(pci_db);
+    let mut stage = FindStage::None;
+    pci_db.for_byte_line(|line| {
+        if found_devices.len() == target_device_count {
+            // Early return once we found all the devices we wanted
+            return Ok(false);
+        }
+        // Remove comments
+        let mut line = line.split(|&b| b == b'#').next().unwrap_or_default();
+        if line.is_empty() {
+            return Ok(true);
+        }
+        match &mut stage {
+            FindStage::None => (),
+            FindStage::FoundVendor(..) if line.starts_with(b"\t") => {
+                line = &line[1..];
+            }
+            FindStage::FoundDevice(..) if line.starts_with(b"\t\t") => {
+                line = &line[2..];
+            }
+            FindStage::FoundDevice(dev) if line.starts_with(b"\t") => {
+                let replacemement = FindStage::FoundVendor(dev.vid, dev.vendor.clone());
+                let device_stage = core::mem::replace(&mut stage, replacemement);
+                let FindStage::FoundDevice(dev) = device_stage else {
+                    unreachable!()
+                };
+                found_devices.push(dev);
+                line = &line[1..];
+            }
+            FindStage::FoundDevice(_) => {
+                let device_stage = core::mem::replace(&mut stage, FindStage::None);
+                let FindStage::FoundDevice(dev) = device_stage else {
+                    unreachable!()
+                };
+                found_devices.push(dev);
+            }
+            FindStage::FoundVendor(..) => stage = FindStage::None,
+        };
+        stage = match &mut stage {
+            FindStage::None => {
+                let Some(vendor_id) = line
+                    .get(..4)
+                    .and_then(|hex| hex_to_u16(hex.try_into().unwrap()))
+                else {
+                    return Ok(true);
+                };
+                if !vendor_to_devices.contains_key(&vendor_id) {
+                    return Ok(true);
+                }
+                let vendor = line[4..].trim_ascii();
+                let vendor_name = match core::str::from_utf8(vendor) {
+                    Ok(name) => name,
+                    Err(err) => return Err(Error::new(ErrorKind::InvalidData, err)),
+                };
+                FindStage::FoundVendor(vendor_id, vendor_name.to_string())
+            }
+            FindStage::FoundVendor(vendor_id, vendor_name) => {
+                let Some(device_id) = line
+                    .get(..4)
+                    .and_then(|hex| hex_to_u16(hex.try_into().unwrap()))
+                else {
+                    return Ok(true);
+                };
+                let Some((_, is_gpu)) = vendor_to_devices
+                    .get(vendor_id)
+                    .unwrap()
+                    .iter()
+                    .copied()
+                    .find(|&(did, _)| did == device_id)
+                else {
+                    return Ok(true);
+                };
+                let name = line[4..].trim_ascii();
+                let name = match core::str::from_utf8(name) {
+                    Ok(name) => name,
+                    Err(err) => return Err(Error::new(ErrorKind::InvalidData, err)),
+                };
+                FindStage::FoundDevice(NamedPciDevice {
+                    vid: *vendor_id,
+                    did: device_id,
+                    name: name.to_string(),
+                    vendor: vendor_name.clone(),
+                    subsystems: Vec::new(),
+                    is_gpu,
+                })
+            }
+            FindStage::FoundDevice(dev) => {
+                let Some((hex_subvendor, rest)) = line.split_at_checked(4) else {
+                    return Err(Error::new(
+                        ErrorKind::InvalidData,
+                        "Failed to parse subvendor ID",
+                    ));
+                };
+                let rest = rest.trim_ascii();
+                let subvendor_id = hex_to_u16_ioerr(hex_subvendor.try_into().unwrap())?;
+                let Some((hex_subdevice, rest)) = rest.split_at_checked(4) else {
+                    return Err(Error::new(
+                        ErrorKind::InvalidData,
+                        "Failed to parse subdevice ID",
+                    ));
+                };
+                let subdevice_id = hex_to_u16_ioerr(hex_subdevice.try_into().unwrap())?;
+                let name = match core::str::from_utf8(rest.trim_ascii()) {
+                    Ok(name) => name,
+                    Err(err) => return Err(Error::new(ErrorKind::InvalidData, err)),
+                };
+                dev.subsystems.push(Subsystem {
+                    vid: subvendor_id,
+                    did: subdevice_id,
+                    name: name.to_string(),
+                });
+                FindStage::FoundDevice(core::mem::take(dev))
+            }
+        };
+        Ok(true)
+    })?;
+    if let FindStage::FoundDevice(dev) = stage {
+        found_devices.push(dev);
+    }
+    Ok(found_devices)
+}

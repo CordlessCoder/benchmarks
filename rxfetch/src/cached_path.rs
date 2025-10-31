@@ -5,9 +5,10 @@ use std::{
 };
 
 thread_local! {
-    static CACHED_PATH: Cell<PathBuf> = Cell::new(PathBuf::new());
+    static CACHED_PATH: Cell<PathBuf> = const { Cell::new(PathBuf::new()) };
 }
 
+#[derive(Debug)]
 pub struct CachedPath {
     pub path: PathBuf,
 }
@@ -18,6 +19,10 @@ impl CachedPath {
         CachedPath {
             path: CACHED_PATH.take(),
         }
+    }
+    pub fn with_path<R>(cb: impl FnOnce(&mut PathBuf) -> R) -> R {
+        let mut path = Self::take();
+        cb(&mut path)
     }
 }
 
