@@ -2,6 +2,7 @@ use owo_colors::Style;
 use std::{borrow::Cow, fmt::Debug};
 
 pub mod cpu;
+pub mod disk;
 pub mod gpu;
 pub mod host;
 pub mod ip;

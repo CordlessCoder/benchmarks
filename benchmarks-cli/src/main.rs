@@ -5,8 +5,8 @@ use owo_colors::{OwoColorize, Stream, Style};
 use tracing_subscriber::{EnvFilter, fmt, fmt::format::FmtSpan, prelude::*};
 
 use benchmarks_cli::data::{
-    DataProvider, DataRow, StyledText, cpu::CpuDataProvider, gpu::GpuDataProvider,
-    host::HostInfoProvider, ip::NetworkProvider, mem::MemDataProvider,
+    DataProvider, DataRow, StyledText, cpu::CpuDataProvider, disk::DiskDataProvider,
+    gpu::GpuDataProvider, host::HostInfoProvider, ip::NetworkProvider, mem::MemDataProvider,
     pci_totals::PciTotalProvider, swap::SwapDataProvider, uptime::UptimeProvider,
     usb::UsbDataProvider, user::UserInfoProvider,
 };
@@ -20,6 +20,7 @@ static ALL_PROVIDERS: &[&dyn DataProvider] = &[
     &PciTotalProvider,
     &NetworkProvider,
     &UsbDataProvider,
+    &DiskDataProvider,
     &SwapDataProvider,
     &HostInfoProvider,
     &UptimeProvider,

@@ -4,6 +4,7 @@ use crate::{
 };
 use benchmarks_sysinfo::{
     cpu::{CpuData, CpuUsageSample},
+    disk::DiskData,
     host::HostData,
     memory::MemInfo,
     network::NetworkData,
@@ -27,6 +28,7 @@ pub struct SystemInformationPanel {
     pci: BackgroundCompute<PCIData, PciBackendError>,
     usb: RepeatedCompute<io::Result<UsbData>>,
     network: RepeatedCompute<io::Result<NetworkData>>,
+    disks: RepeatedCompute<io::Result<DiskData>>,
     host: BackgroundCompute<HostData, std::io::Error>,
     user: BackgroundCompute<UserData, PwuIdErr>,
     swap: RepeatedCompute<io::Result<SwapData>>,
@@ -44,6 +46,7 @@ impl Default for SystemInformationPanel {
             pci: BackgroundCompute::new(PCIData::fetch),
             usb: RepeatedCompute::new(UsbData::fetch, Duration::from_secs(5)),
             network: RepeatedCompute::new(|| Ok(NetworkData::fetch()), Duration::from_secs(5)),
+            disks: RepeatedCompute::new(DiskData::fetch, Duration::from_secs(30)),
             host: BackgroundCompute::new(HostData::fetch),
             user: BackgroundCompute::new(UserData::fetch),
             swap: RepeatedCompute::new(SwapData::fetch, Duration::from_secs_f32(0.5)),
@@ -105,15 +108,27 @@ impl Benchmark for SystemInformationPanel {
         });
         ui.heading("System");
         self.sysinfo.display(ui, |ui, sysinfo| {
-            ui.label(format!(
-                "Uptime: {}",
-                humantime::format_duration(sysinfo.uptime)
-            ));
-            ui.label(format!("Processes: {}", sysinfo.processes));
-            ui.label(format!(
-                "Load averages: {:.2} {:.2} {:.2}",
-                sysinfo.load_averages[0], sysinfo.load_averages[1], sysinfo.load_averages[2],
-            ));
+            ui.indent("system_indent", |ui| {
+                ui.label(format!(
+                    "Uptime: {}",
+                    humantime::format_duration(sysinfo.uptime)
+                ));
+                ui.label(format!("Processes: {}", sysinfo.processes));
+                ui.label(format!(
+                    "Load averages: {:.2} {:.2} {:.2}",
+                    sysinfo.load_averages[0], sysinfo.load_averages[1], sysinfo.load_averages[2],
+                ));
+            });
+        });
+        ui.heading("Disks");
+        self.disks.display(ui, |ui, disks| {
+            for disk in &disks.disks {
+                ui.label(&disk.device_name);
+                ui.indent(("size_for", &disk.device_name), |ui| {
+                    ui.label(format!("Model: {}", disk.model));
+                    ui.label(format!("Size: {}", disk.size.into_decimalsize()));
+                });
+            }
         });
         ui.heading("PCI");
         self.pci.display(ui, |ui, pci| {

@@ -1,5 +1,5 @@
 mod arrayvec;
-mod cached_path;
+pub mod cached_path;
 use arrayvec::*;
 pub mod components;
 pub mod display;
