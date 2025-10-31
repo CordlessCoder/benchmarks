@@ -5,6 +5,7 @@ use std::{
     io::{self, Read},
     path::{Path, PathBuf},
 };
+use tracing::debug;
 
 const SYS_BLOCK: &str = "/sys/block/";
 
@@ -97,9 +98,11 @@ impl DiskData {
                 })?
                 .to_string();
             path.push(&device_name);
-            let disk = Disk::get_from_path(&mut path, device_name)?;
+            match Disk::get_from_path(&mut path, device_name) {
+                Ok(disk) => disks.push(disk),
+                Err(err) => debug!("Failed to get disk info: {err}"),
+            }
             path.pop();
-            disks.push(disk);
         }
         Ok(DiskData { disks })
     }
