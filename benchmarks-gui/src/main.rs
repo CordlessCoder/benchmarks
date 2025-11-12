@@ -17,7 +17,7 @@ fn main() -> eframe::Result {
         .with(
             fmt::layer()
                 .with_span_events(FmtSpan::ENTER | FmtSpan::CLOSE)
-                .with_timer(tracing_subscriber::fmt::time::uptime())
+                .with_timer(fmt::time::uptime())
                 .pretty(),
         )
         .with(EnvFilter::from_default_env())
