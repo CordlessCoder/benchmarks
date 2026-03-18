@@ -7,13 +7,16 @@ edition = "2024"
 benchmarks-core = { version = "0.1.0", path = "../benchmarks-core" }
 eframe = { version = "0.33.0", features = ["persistence"] }
 winit = "0.30.12"
-
-nix.workspace = true
-rand.workspace = true
+nix = { workspace = true }
+rand = { workspace = true, features = ["sys_rng"] }
 seq-macro.workspace = true
 sizef.workspace = true
-benchmarks-memory = { version = "0.1.0", path = "../benchmarks-memory" }
+benchmarks-memory = { version = "0.1.0", path = "../benchmarks-memory", default-features = false }
 benchmarks-sysinfo = { version = "0.1.0", path = "../benchmarks-sysinfo" }
 tracing.workspace = true
 tracing-subscriber.workspace = true
 humantime.workspace = true
+
+[features]
+default = ["chacha"]
+chacha = ["benchmarks-sysinfo/chacha"]

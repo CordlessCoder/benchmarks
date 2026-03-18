@@ -3,6 +3,7 @@ use crate::{
     background_compute::{BackgroundCompute, BackgroundComputeProvider, RepeatedCompute},
 };
 use benchmarks_sysinfo::{
+    chacha::ChaChaSample,
     cpu::{CpuData, CpuUsageSample},
     disk::DiskData,
     host::HostData,
@@ -23,6 +24,7 @@ use std::{io, time::Duration};
 pub struct SystemInformationPanel {
     cpu: BackgroundCompute<CpuData, std::io::Error>,
     cpu_usage: RepeatedCompute<io::Result<CpuUsageSample>>,
+    chacha: RepeatedCompute<io::Result<ChaChaSample>>,
     memory: RepeatedCompute<io::Result<MemInfo>>,
     sysinfo: RepeatedCompute<io::Result<SysInfo>>,
     pci: BackgroundCompute<PCIData, PciBackendError>,
@@ -41,6 +43,7 @@ impl Default for SystemInformationPanel {
         SystemInformationPanel {
             cpu: BackgroundCompute::new(CpuData::fetch),
             cpu_usage: RepeatedCompute::new(CpuUsageSample::fetch, Duration::from_secs_f32(0.2)),
+            chacha: RepeatedCompute::new(ChaChaSample::fetch, Duration::from_secs_f32(0.2)),
             memory: RepeatedCompute::new(MemInfo::fetch, Duration::from_secs_f32(0.5)),
             sysinfo: RepeatedCompute::new(SysInfo::fetch, Duration::from_secs_f32(0.5)),
             pci: BackgroundCompute::new(PCIData::fetch),
@@ -95,6 +98,28 @@ impl Benchmark for SystemInformationPanel {
                 });
             }
         });
+        #[cfg(feature = "chacha")]
+        {
+            ui.heading("ChaCha20");
+            self.chacha.display(ui, |ui, chacha| {
+                ui.label(format!("Total Sessions: {}", chacha.data.total_sessions));
+                ui.label(format!("Active Sessions: {}", chacha.data.active_sessions));
+                ui.label(format!(
+                    "Data Processed: {}",
+                    chacha.data.bytes.into_decimalsize()
+                ));
+                if let Some(diff) = chacha.diff_with_last() {
+                    let throughput = (diff.bytes as f64) / diff.over.as_secs_f64();
+                    let sessions_per_second = (diff.sessions as f64) / diff.over.as_secs_f64();
+                    ui.label(format!("Throughput: {}/s", throughput.into_decimalsize()));
+                    ui.label(format!("Sessions: {sessions_per_second:.1} per second"));
+                } else {
+                    ui.label("Throughput: N/A");
+                    ui.label("Sessions: N/A");
+                }
+            });
+        }
+
         ui.heading("Memory");
         self.memory.display(ui, |ui, mem| {
             ui.indent("memory_indent", |ui| {

@@ -8,3 +8,5 @@ pub mod swap;
 pub mod sysinfo;
 pub mod usb;
 pub mod user;
+#[cfg(feature = "chacha")]
+pub mod chacha;

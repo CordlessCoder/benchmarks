@@ -12,3 +12,7 @@ rxfetch = { version = "0.1.0", path = "../rxfetch", features = ["tracing"] }
 sizef = "^0.2"
 timeout-readwrite = "0.4.0"
 tracing = { workspace = true }
+
+[features]
+default = ["chacha"]
+chacha = []

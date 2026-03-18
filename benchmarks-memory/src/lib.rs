@@ -1,5 +1,5 @@
 use nix::unistd::SysconfVar;
-use rand::{RngCore, SeedableRng};
+use rand::{Rng, SeedableRng};
 use std::{
     alloc::Layout,
     fmt::Display,
@@ -238,7 +238,7 @@ impl MemoryThroughputBench {
                 }
             }
             MemoryInitializationType::Random => {
-                let mut rng = rand::rngs::SmallRng::from_os_rng();
+                let mut rng = rand::rngs::SmallRng::from_rng(&mut rand::rng());
                 for chunk in memory.chunks_exact_mut(chunk_size) {
                     for c in chunk.chunks_mut(8) {
                         let bytes = rng.next_u64().to_ne_bytes();
