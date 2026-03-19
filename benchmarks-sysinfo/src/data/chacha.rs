@@ -17,6 +17,12 @@ pub struct ChaChaInstant {
     pub total_sessions: u64,
     pub active_sessions: u64,
     pub bytes: u64,
+    pub reads: u64,
+    pub writes: u64,
+    pub ioctls: u64,
+    pub blocks: u64,
+    pub buffered_bytes: u64,
+    pub errors: u64,
 }
 
 static LAST_SAMPLE: LazyLock<Mutex<Option<ChaChaSample>>> = LazyLock::new(|| Mutex::new(None));
@@ -81,9 +87,15 @@ impl ChaChaSample {
                 .parse()
                 .map_err(|err| io::Error::new(ErrorKind::InvalidData, err))?;
             match name {
+                b"Reads" => info.data.reads = value,
+                b"Writes" => info.data.writes = value,
+                b"Ioctls" => info.data.ioctls = value,
+                b"Blocks" => info.data.blocks = value,
+                b"Buffer bytes" => info.data.buffered_bytes = value,
+                b"Errors" => info.data.errors = value,
                 b"Sessions(Active)" => info.data.active_sessions = value,
                 b"Sessions(Total)" => info.data.total_sessions = value,
-                b"Bytes" => info.data.bytes = value,
+                b"Bytes Processed" => info.data.bytes = value,
                 _ => (),
             }
             Ok(true)
